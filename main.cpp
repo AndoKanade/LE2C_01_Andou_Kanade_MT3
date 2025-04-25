@@ -106,12 +106,12 @@ Matrix4x4 MakeAffineMatrix(const Vector3 &scale, const Vector3 &rotate,
   Matrix4x4 rotateZ = MakeRotateZMatrix(rotate.z);
 
   // 回転順: Z → X → Y →（スケーリング）→ 平行移動
-  Matrix4x4 rotateMatrix = Multiply(Multiply(rotateZ, rotateX), rotateY);
+  Matrix4x4 rotateMatrix = Multiply(Multiply(rotateX, rotateY), rotateZ);
 
   Matrix4x4 translateMatrix = MakeTranslateMatrix(translate);
 
   Matrix4x4 affineMatrix =
-      Multiply(Multiply(rotateMatrix, scaleMatrix), translateMatrix);
+      Multiply(Multiply(scaleMatrix,rotateMatrix ), translateMatrix);
 
   return affineMatrix;
 }
