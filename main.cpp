@@ -17,44 +17,53 @@ typedef struct Vector3 {
   float z;
 } Vector3;
 
-Matrix4x4 MakeTranslateMatrix(const Vector3 &translate) {
-  Matrix4x4 matrix = {}; // すべて0で初期化
-  // 単位行列の形に設定
-  matrix.m[0][0] = 1.0f;
-  matrix.m[1][1] = 1.0f;
-  matrix.m[2][2] = 1.0f;
-  matrix.m[3][3] = 1.0f;
-  // 平行移動成分を設定
-  matrix.m[3][0] = translate.x;
-  matrix.m[3][1] = translate.y;
-  matrix.m[3][2] = translate.z;
-  return matrix;
+Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio,
+                                   float nearClip, float farClip) {
+
+  float f = 1.0f / tanf(fovY * 0.5f);
+  float range = farClip / (farClip - nearClip);
+
+  Matrix4x4 result = {};
+
+  result.m[0][0] = f / aspectRatio;
+  result.m[1][1] = f;
+  result.m[2][2] = range;
+  result.m[2][3] = 1.0f;
+  result.m[3][2] = -range * nearClip;
+
+  return result;
 }
 
-Matrix4x4 MakeScaleMatrix(const Vector3 &scale) {
-  Matrix4x4 matrix = {}; // すべて0で初期化
-  // スケール行列の設定
-  matrix.m[0][0] = scale.x;
-  matrix.m[1][1] = scale.y;
-  matrix.m[2][2] = scale.z;
-  matrix.m[3][3] = 1.0f;
-  return matrix;
+Matrix4x4 MakeOrthographicMatrix(float left, float top, float right,
+                                 float bottom, float nearClip, float farClip) {
+  Matrix4x4 result = {};
+
+  result.m[0][0] = 2.0f / (right - left);
+  result.m[1][1] = 2.0f / (top - bottom);
+  result.m[2][2] = 1.0f / (farClip - nearClip);
+  result.m[3][0] = (left + right) / (left - right);
+  result.m[3][1] = (top + bottom) / (bottom - top);
+  result.m[3][2] = -nearClip / (farClip - nearClip);
+  result.m[3][3] = 1.0f;
+
+  return result;
 }
 
-Vector3 Transform(const Vector3 &vector, const Matrix4x4 &matrix) {
-  Vector3 result;
-  result.x = vector.x * matrix.m[0][0] + vector.y * matrix.m[1][0] +
-             vector.z * matrix.m[2][0] + matrix.m[3][0];
-  result.y = vector.x * matrix.m[0][1] + vector.y * matrix.m[1][1] +
-             vector.z * matrix.m[2][1] + matrix.m[3][1];
-  result.z = vector.x * matrix.m[0][2] + vector.y * matrix.m[1][2] +
-             vector.z * matrix.m[2][2] + matrix.m[3][2];
-  float w = vector.x * matrix.m[0][3] + vector.y * matrix.m[1][3] +
-            vector.z * matrix.m[2][3] + matrix.m[3][3];
-  assert(w != 0.0f);
-  result.x /= w;
-  result.y /= w;
-  result.z /= w;
+Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height,
+                             float minDepth, float maxDepth) {
+  Matrix4x4 result = {};
+
+  float halfWidth = width * 0.5f;
+  float halfHeight = height * 0.5f;
+  float depthRange = maxDepth - minDepth;
+
+  result.m[0][0] = halfWidth;
+  result.m[1][1] = -halfHeight; // Y 軸を反転（DirectX は左上原点）
+  result.m[2][2] = depthRange;
+  result.m[3][0] = left + halfWidth;
+  result.m[3][1] = top + halfHeight;
+  result.m[3][2] = minDepth;
+  result.m[3][3] = 1.0f;
 
   return result;
 }
@@ -93,14 +102,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   char keys[256] = {0};
   char preKeys[256] = {0};
 
-  Vector3 translate{4.1f, 2.6f, 0.8f};
-  Vector3 scale{1.5f, 5.2f, 7.3f};
-  Matrix4x4 translateMatrix = MakeTranslateMatrix(translate);
-  Matrix4x4 scaleMatrix = MakeScaleMatrix(scale);
-  Vector3 point{2.3f, 3.8f, 1.4f};
-  Matrix4x4 transformMatrix = {1.0f, 2.0f, 3.0f, 4.0f, 3.0f, 1.0f, 1.0f, 2.0f,
-                               1.0f, 4.0f, 2.0f, 3.0f, 2.0f, 2.0f, 1.0f, 3.0f};
-  Vector3 transformed = Transform(point, transformMatrix);
+  Matrix4x4 orthographicMatrix =
+      MakeOrthographicMatrix(-160.f, 160.f, 200.0f, 300.0f, 0.0f, 1000.0f);
+
+  Matrix4x4 perspectiveFovMatrix =
+      MakePerspectiveFovMatrix(0.63f, 1.33f, 0.1f, 1000.0f);
+
+  Matrix4x4 viewportMatrix =
+      MakeViewportMatrix(100.0f, 200.0f, 600.0f, 300.0f, 0.0f, 1.0f);
 
   // ウィンドウの×ボタンが押されるまでループ
   while (Novice::ProcessMessage() == 0) {
@@ -123,9 +132,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     /// ↓描画処理ここから
     ///
 
-    VectorScreenPrintf(0, 0, transformed, "transformed");
-    Matrix4x4ScreenPrintf(0, 30, translateMatrix, "translateMatrix");
-    Matrix4x4ScreenPrintf(0, kRowheight * 5 * 2, scaleMatrix, "scaleMatrix");
+    Matrix4x4ScreenPrintf(0, 0, orthographicMatrix, "orthographicMatrix");
+
+    Matrix4x4ScreenPrintf(0, kRowheight * 5, perspectiveFovMatrix,
+                          "perspectiveFovMatrix");
+    Matrix4x4ScreenPrintf(0, kRowheight * 10, viewportMatrix, "viewportMatrix");
 
     ///
     /// ↑描画処理ここまで
