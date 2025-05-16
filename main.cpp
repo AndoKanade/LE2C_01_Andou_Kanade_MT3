@@ -1,8 +1,8 @@
 #include <Novice.h>
 #define _USE_MATH_DEFINES
-#include <math.h>
-
 #include <assert.h>
+#include <cmath>
+#include <math.h>
 
 const char kWindowTitle[] = "LE2C_01_アンドウ_カナデ_MT3";
 
@@ -16,6 +16,8 @@ typedef struct Vector3 {
   float y;
   float z;
 } Vector3;
+
+#pragma region 関数
 
 Matrix4x4 MakeTranslateMatrix(const Vector3 &translate) {
   Matrix4x4 matrix = {}; // すべて0で初期化
@@ -41,6 +43,82 @@ Matrix4x4 MakeScaleMatrix(const Vector3 &scale) {
   return matrix;
 }
 
+Matrix4x4 MakeRotateXMatrix(float radian) {
+  Matrix4x4 result{};
+
+  result.m[0][0] = 1;
+  result.m[3][3] = 1;
+
+  // X軸回転に必要な部分だけ上書き
+  result.m[1][1] = std::cos(radian);
+  result.m[1][2] = std::sin(radian);
+  result.m[2][1] = -std::sin(radian);
+  result.m[2][2] = std::cos(radian);
+
+  return result;
+}
+
+Matrix4x4 MakeRotateYMatrix(float radian) {
+  Matrix4x4 result{};
+
+  result.m[1][1] = 1.0f;
+  result.m[3][3] = 1.0f;
+
+  result.m[0][0] = std::cos(radian);
+  result.m[0][2] = -std::sin(radian);
+  result.m[2][0] = std::sin(radian);
+  result.m[2][2] = std::cos(radian);
+
+  return result;
+}
+
+// Z軸回転行列
+Matrix4x4 MakeRotateZMatrix(float radian) {
+  Matrix4x4 result{};
+
+  result.m[2][2] = 1;
+  result.m[3][3] = 1;
+
+  result.m[0][0] = std::cos(radian);
+  result.m[0][1] = std::sin(radian);
+  result.m[1][0] = -std::sin(radian);
+  result.m[1][1] = std::cos(radian);
+
+  return result;
+}
+
+Matrix4x4 Multiply(const Matrix4x4 &m1, const Matrix4x4 &m2) {
+  Matrix4x4 result{};
+  for (int row = 0; row < 4; ++row) {
+    for (int col = 0; col < 4; ++col) {
+      result.m[row][col] = 0.0f;
+      for (int k = 0; k < 4; ++k) {
+        result.m[row][col] += m1.m[row][k] * m2.m[k][col];
+      }
+    }
+  }
+  return result;
+}
+
+Matrix4x4 MakeAffineMatrix(const Vector3 &scale, const Vector3 &rotate,
+                           const Vector3 &translate) {
+
+  Matrix4x4 scaleMatrix = MakeScaleMatrix(scale);
+  Matrix4x4 rotateX = MakeRotateXMatrix(rotate.x);
+  Matrix4x4 rotateY = MakeRotateYMatrix(rotate.y);
+  Matrix4x4 rotateZ = MakeRotateZMatrix(rotate.z);
+
+  // 回転順: Z → X → Y →（スケーリング）→ 平行移動
+  Matrix4x4 rotateMatrix = Multiply(Multiply(rotateX, rotateY), rotateZ);
+
+  Matrix4x4 translateMatrix = MakeTranslateMatrix(translate);
+
+  Matrix4x4 affineMatrix =
+      Multiply(Multiply(scaleMatrix, rotateMatrix), translateMatrix);
+
+  return affineMatrix;
+}
+
 Vector3 Transform(const Vector3 &vector, const Matrix4x4 &matrix) {
   Vector3 result;
   result.x = vector.x * matrix.m[0][0] + vector.y * matrix.m[1][0] +
@@ -55,6 +133,57 @@ Vector3 Transform(const Vector3 &vector, const Matrix4x4 &matrix) {
   result.x /= w;
   result.y /= w;
   result.z /= w;
+
+  return result;
+}
+
+Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio,
+                                   float nearClip, float farClip) {
+
+  float f = 1.0f / tanf(fovY * 0.5f);
+  float range = farClip / (farClip - nearClip);
+
+  Matrix4x4 result = {};
+
+  result.m[0][0] = f / aspectRatio;
+  result.m[1][1] = f;
+  result.m[2][2] = range;
+  result.m[2][3] = 1.0f;
+  result.m[3][2] = -range * nearClip;
+
+  return result;
+}
+
+Matrix4x4 MakeOrthographicMatrix(float left, float top, float right,
+                                 float bottom, float nearClip, float farClip) {
+  Matrix4x4 result = {};
+
+  result.m[0][0] = 2.0f / (right - left);
+  result.m[1][1] = 2.0f / (top - bottom);
+  result.m[2][2] = 1.0f / (farClip - nearClip);
+  result.m[3][0] = (left + right) / (left - right);
+  result.m[3][1] = (top + bottom) / (bottom - top);
+  result.m[3][2] = -nearClip / (farClip - nearClip);
+  result.m[3][3] = 1.0f;
+
+  return result;
+}
+
+Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height,
+                             float minDepth, float maxDepth) {
+  Matrix4x4 result = {};
+
+  float halfWidth = width * 0.5f;
+  float halfHeight = height * 0.5f;
+  float depthRange = maxDepth - minDepth;
+
+  result.m[0][0] = halfWidth;
+  result.m[1][1] = -halfHeight; // Y 軸を反転（DirectX は左上原点）
+  result.m[2][2] = depthRange;
+  result.m[3][0] = left + halfWidth;
+  result.m[3][1] = top + halfHeight;
+  result.m[3][2] = minDepth;
+  result.m[3][3] = 1.0f;
 
   return result;
 }
@@ -82,6 +211,7 @@ void VectorScreenPrintf(int x, int y, const Vector3 &vector,
   Novice::ScreenPrintf(x + kColumnWidth * 2, y, "%.02f", vector.z);
   Novice::ScreenPrintf(x + kColumnWidth * 3, y, label);
 }
+#pragma endregion
 
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
@@ -93,14 +223,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   char keys[256] = {0};
   char preKeys[256] = {0};
 
-  Vector3 translate{4.1f, 2.6f, 0.8f};
-  Vector3 scale{1.5f, 5.2f, 7.3f};
-  Matrix4x4 translateMatrix = MakeTranslateMatrix(translate);
-  Matrix4x4 scaleMatrix = MakeScaleMatrix(scale);
-  Vector3 point{2.3f, 3.8f, 1.4f};
-  Matrix4x4 transformMatrix = {1.0f, 2.0f, 3.0f, 4.0f, 3.0f, 1.0f, 1.0f, 2.0f,
-                               1.0f, 4.0f, 2.0f, 3.0f, 2.0f, 2.0f, 1.0f, 3.0f};
-  Vector3 transformed = Transform(point, transformMatrix);
 
   // ウィンドウの×ボタンが押されるまでループ
   while (Novice::ProcessMessage() == 0) {
@@ -122,10 +244,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     ///
     /// ↓描画処理ここから
     ///
-
-    VectorScreenPrintf(0, 0, transformed, "transformed");
-    Matrix4x4ScreenPrintf(0, 30, translateMatrix, "translateMatrix");
-    Matrix4x4ScreenPrintf(0, kRowheight * 5 * 2, scaleMatrix, "scaleMatrix");
 
     ///
     /// ↑描画処理ここまで
