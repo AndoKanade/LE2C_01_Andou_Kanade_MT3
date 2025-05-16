@@ -87,6 +87,172 @@ Matrix4x4 MakeRotateZMatrix(float radian) {
   return result;
 }
 
+Matrix4x4 Add(const Matrix4x4 &m1, const Matrix4x4 &m2) {
+  Matrix4x4 result;
+  result.m[0][0] = m1.m[0][0] + m2.m[0][0];
+  result.m[0][1] = m1.m[0][1] + m2.m[0][1];
+  result.m[0][2] = m1.m[0][2] + m2.m[0][2];
+  result.m[0][3] = m1.m[0][3] + m2.m[0][3];
+  result.m[1][0] = m1.m[1][0] + m2.m[1][0];
+  result.m[1][1] = m1.m[1][1] + m2.m[1][1];
+  result.m[1][2] = m1.m[1][2] + m2.m[1][2];
+  result.m[1][3] = m1.m[1][3] + m2.m[1][3];
+  result.m[2][0] = m1.m[2][0] + m2.m[2][0];
+  result.m[2][1] = m1.m[2][1] + m2.m[2][1];
+  result.m[2][2] = m1.m[2][2] + m2.m[2][2];
+  result.m[2][3] = m1.m[2][3] + m2.m[2][3];
+  result.m[3][0] = m1.m[3][0] + m2.m[3][0];
+  result.m[3][1] = m1.m[3][1] + m2.m[3][1];
+  result.m[3][2] = m1.m[3][2] + m2.m[3][2];
+  result.m[3][3] = m1.m[3][3] + m2.m[3][3];
+  return result;
+}
+
+Matrix4x4 Subtract(const Matrix4x4 &m1, const Matrix4x4 &m2) {
+  Matrix4x4 result;
+  result.m[0][0] = m1.m[0][0] - m2.m[0][0];
+  result.m[0][1] = m1.m[0][1] - m2.m[0][1];
+  result.m[0][2] = m1.m[0][2] - m2.m[0][2];
+  result.m[0][3] = m1.m[0][3] - m2.m[0][3];
+  result.m[1][0] = m1.m[1][0] - m2.m[1][0];
+  result.m[1][1] = m1.m[1][1] - m2.m[1][1];
+  result.m[1][2] = m1.m[1][2] - m2.m[1][2];
+  result.m[1][3] = m1.m[1][3] - m2.m[1][3];
+  result.m[2][0] = m1.m[2][0] - m2.m[2][0];
+  result.m[2][1] = m1.m[2][1] - m2.m[2][1];
+  result.m[2][2] = m1.m[2][2] - m2.m[2][2];
+  result.m[2][3] = m1.m[2][3] - m2.m[2][3];
+  result.m[3][0] = m1.m[3][0] - m2.m[3][0];
+  result.m[3][1] = m1.m[3][1] - m2.m[3][1];
+  result.m[3][2] = m1.m[3][2] - m2.m[3][2];
+  result.m[3][3] = m1.m[3][3] - m2.m[3][3];
+  return result;
+}
+
+Matrix4x4 Inverse(const Matrix4x4 &m) {
+  Matrix4x4 result;
+
+  // 行列の行列式を計算
+  float det =
+      m.m[0][0] *
+          (m.m[1][1] * (m.m[2][2] * m.m[3][3] - m.m[2][3] * m.m[3][2]) -
+           m.m[1][2] * (m.m[2][1] * m.m[3][3] - m.m[2][3] * m.m[3][1]) +
+           m.m[1][3] * (m.m[2][1] * m.m[3][2] - m.m[2][2] * m.m[3][1])) -
+      m.m[0][1] *
+          (m.m[1][0] * (m.m[2][2] * m.m[3][3] - m.m[2][3] * m.m[3][2]) -
+           m.m[1][2] * (m.m[2][0] * m.m[3][3] - m.m[2][3] * m.m[3][0]) +
+           m.m[1][3] * (m.m[2][0] * m.m[3][2] - m.m[2][2] * m.m[3][0])) +
+      m.m[0][2] *
+          (m.m[1][0] * (m.m[2][1] * m.m[3][3] - m.m[2][3] * m.m[3][1]) -
+           m.m[1][1] * (m.m[2][0] * m.m[3][3] - m.m[2][3] * m.m[3][0]) +
+           m.m[1][3] * (m.m[2][0] * m.m[3][1] - m.m[2][1] * m.m[3][0])) -
+      m.m[0][3] * (m.m[1][0] * (m.m[2][1] * m.m[3][2] - m.m[2][2] * m.m[3][1]) -
+                   m.m[1][1] * (m.m[2][0] * m.m[3][2] - m.m[2][2] * m.m[3][0]) +
+                   m.m[1][2] * (m.m[2][0] * m.m[3][1] - m.m[2][1] * m.m[3][0]));
+
+  if (det == 0) {
+    // 行列式がゼロの場合、逆行列は存在しません
+    return result; // 逆行列は存在しないのでゼロ行列を返す
+  }
+
+  // 行列式の逆数を計算
+  float invDet = 1.0f / det;
+
+  // 各要素を余因子行列から計算
+  result.m[0][0] =
+      (m.m[1][1] * (m.m[2][2] * m.m[3][3] - m.m[2][3] * m.m[3][2]) -
+       m.m[1][2] * (m.m[2][1] * m.m[3][3] - m.m[2][3] * m.m[3][1]) +
+       m.m[1][3] * (m.m[2][1] * m.m[3][2] - m.m[2][2] * m.m[3][1])) *
+      invDet;
+  result.m[0][1] =
+      (-m.m[0][1] * (m.m[2][2] * m.m[3][3] - m.m[2][3] * m.m[3][2]) +
+       m.m[0][2] * (m.m[2][1] * m.m[3][3] - m.m[2][3] * m.m[3][1]) -
+       m.m[0][3] * (m.m[2][1] * m.m[3][2] - m.m[2][2] * m.m[3][1])) *
+      invDet;
+  result.m[0][2] =
+      (m.m[0][1] * (m.m[1][2] * m.m[3][3] - m.m[1][3] * m.m[3][2]) -
+       m.m[0][2] * (m.m[1][1] * m.m[3][3] - m.m[1][3] * m.m[3][1]) +
+       m.m[0][3] * (m.m[1][1] * m.m[3][2] - m.m[1][2] * m.m[3][1])) *
+      invDet;
+  result.m[0][3] =
+      (-m.m[0][1] * (m.m[1][2] * m.m[2][3] - m.m[1][3] * m.m[2][2]) +
+       m.m[0][2] * (m.m[1][1] * m.m[2][3] - m.m[1][3] * m.m[2][1]) -
+       m.m[0][3] * (m.m[1][1] * m.m[2][2] - m.m[1][2] * m.m[2][1])) *
+      invDet;
+
+  result.m[1][0] =
+      (-m.m[1][0] * (m.m[2][2] * m.m[3][3] - m.m[2][3] * m.m[3][2]) +
+       m.m[1][2] * (m.m[2][0] * m.m[3][3] - m.m[2][3] * m.m[3][0]) -
+       m.m[1][3] * (m.m[2][0] * m.m[3][2] - m.m[2][2] * m.m[3][0])) *
+      invDet;
+  result.m[1][1] =
+      (m.m[0][0] * (m.m[2][2] * m.m[3][3] - m.m[2][3] * m.m[3][2]) -
+       m.m[0][2] * (m.m[2][0] * m.m[3][3] - m.m[2][3] * m.m[3][0]) +
+       m.m[0][3] * (m.m[2][0] * m.m[3][2] - m.m[2][2] * m.m[3][0])) *
+      invDet;
+  result.m[1][2] =
+      -(m.m[0][0] * (m.m[1][2] * m.m[3][3] - m.m[1][3] * m.m[3][2]) -
+        m.m[0][2] * (m.m[1][0] * m.m[3][3] - m.m[1][3] * m.m[3][0]) +
+        m.m[0][3] * (m.m[1][0] * m.m[3][2] - m.m[1][2] * m.m[3][0])) *
+      invDet;
+
+  result.m[1][3] =
+      (m.m[0][0] * (m.m[1][2] * m.m[2][3] - m.m[1][3] * m.m[2][2]) -
+       m.m[0][2] * (m.m[1][0] * m.m[2][3] - m.m[1][3] * m.m[2][0]) +
+       m.m[0][3] * (m.m[1][0] * m.m[2][2] - m.m[1][2] * m.m[2][0])) *
+      invDet;
+
+  result.m[2][0] =
+      (m.m[1][0] * (m.m[2][1] * m.m[3][3] - m.m[2][3] * m.m[3][1]) -
+       m.m[1][1] * (m.m[2][0] * m.m[3][3] - m.m[2][3] * m.m[3][0]) +
+       m.m[1][3] * (m.m[2][0] * m.m[3][1] - m.m[2][1] * m.m[3][0])) *
+      invDet;
+
+  result.m[2][1] =
+      (-m.m[0][0] * (m.m[2][1] * m.m[3][3] - m.m[2][3] * m.m[3][1]) +
+       m.m[0][1] * (m.m[2][0] * m.m[3][3] - m.m[2][3] * m.m[3][0]) -
+       m.m[0][3] * (m.m[2][0] * m.m[3][1] - m.m[2][1] * m.m[3][0])) *
+      invDet;
+
+  result.m[2][2] =
+      (m.m[0][0] * (m.m[1][1] * m.m[3][3] - m.m[1][3] * m.m[3][1]) -
+       m.m[0][1] * (m.m[1][0] * m.m[3][3] - m.m[1][3] * m.m[3][0]) +
+       m.m[0][3] * (m.m[1][0] * m.m[3][1] - m.m[1][1] * m.m[3][0])) *
+      invDet;
+
+  result.m[2][3] =
+      (-m.m[0][0] * (m.m[1][1] * m.m[2][3] - m.m[1][3] * m.m[2][1]) +
+       m.m[0][1] * (m.m[1][0] * m.m[2][3] - m.m[1][3] * m.m[2][0]) -
+       m.m[0][3] * (m.m[1][0] * m.m[2][1] - m.m[1][1] * m.m[2][0])) *
+      invDet;
+
+  result.m[3][0] =
+      (-m.m[1][0] * (m.m[2][1] * m.m[3][2] - m.m[2][2] * m.m[3][1]) +
+       m.m[1][1] * (m.m[2][0] * m.m[3][2] - m.m[2][2] * m.m[3][0]) -
+       m.m[1][2] * (m.m[2][0] * m.m[3][1] - m.m[2][1] * m.m[3][0])) *
+      invDet;
+
+  result.m[3][1] =
+      (m.m[0][0] * (m.m[2][1] * m.m[3][2] - m.m[2][2] * m.m[3][1]) -
+       m.m[0][1] * (m.m[2][0] * m.m[3][2] - m.m[2][2] * m.m[3][0]) +
+       m.m[0][2] * (m.m[2][0] * m.m[3][1] - m.m[2][1] * m.m[3][0])) *
+      invDet;
+
+  result.m[3][2] =
+      (-m.m[0][0] * (m.m[1][1] * m.m[3][2] - m.m[1][2] * m.m[3][1]) +
+       m.m[0][1] * (m.m[1][0] * m.m[3][2] - m.m[1][2] * m.m[3][0]) -
+       m.m[0][2] * (m.m[1][0] * m.m[3][1] - m.m[1][1] * m.m[3][0])) *
+      invDet;
+
+  result.m[3][3] =
+      (m.m[0][0] * (m.m[1][1] * m.m[2][2] - m.m[1][2] * m.m[2][1]) -
+       m.m[0][1] * (m.m[1][0] * m.m[2][2] - m.m[1][2] * m.m[2][0]) +
+       m.m[0][2] * (m.m[1][0] * m.m[2][1] - m.m[1][1] * m.m[2][0])) *
+      invDet;
+
+  return result;
+}
+
 Matrix4x4 Multiply(const Matrix4x4 &m1, const Matrix4x4 &m2) {
   Matrix4x4 result{};
   for (int row = 0; row < 4; ++row) {
@@ -188,6 +354,38 @@ Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height,
   return result;
 }
 
+Matrix4x4 Transpose(const Matrix4x4 &m) {
+  Matrix4x4 result;
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 4; j++) {
+      result.m[i][j] = m.m[j][i];
+    }
+  }
+  return result;
+}
+
+Matrix4x4 MakeIdentity4x4() {
+  Matrix4x4 result;
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 4; j++) {
+      if (i == j) {
+        result.m[i][j] = 1.0f;
+      } else {
+        result.m[i][j] = 0.0f;
+      }
+    }
+  }
+  return result;
+}
+
+Vector3 Cross(const Vector3 &v1, const Vector3 &v2) {
+  Vector3 result;
+  result.x = v1.y * v2.z - v1.z * v2.y;
+  result.y = v1.z * v2.x - v1.x * v2.z;
+  result.z = v1.x * v2.y - v1.y * v2.x;
+  return result;
+}
+
 static const int kRowheight = 20;
 static const int kColumnWidth = 60;
 
@@ -223,11 +421,35 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   char keys[256] = {0};
   char preKeys[256] = {0};
 
-
   // ウィンドウの×ボタンが押されるまでループ
   while (Novice::ProcessMessage() == 0) {
     // フレームの開始
     Novice::BeginFrame();
+
+    const float velocity = 0.1f;
+
+    static Vector3 rotate{};
+    Vector3 translate{};
+
+    // float rotationSpeed = 45.0f; // 1秒あたり45度回転
+
+    // float deltaTime = static_cast<float>(GetDeltaTime());
+
+    const Vector3 kLocalVertices[3] = {
+        Vector3(0, 1, 0),   // 頂点1（上）
+        Vector3(-1, -1, 0), // 頂点2（左下）
+        Vector3(1, -1, 0)   // 頂点3（右下）
+    };
+
+    Vector3 v1{1.2f, -3.9f, 2.5f};
+    Vector3 v2{2.8f, 0.4f, -1.3f};
+    Vector3 cross = Cross(v1, v2);
+
+    // カメラの位置
+    static Vector3 cameraPosition = {0.0f, 0.0f, -5.0f};
+
+    const int kWindowWidth = 1280;
+    const int kWindowHeight = 720;
 
     // キー入力を受け取る
     memcpy(preKeys, keys, 256);
@@ -237,6 +459,44 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     /// ↓更新処理ここから
     ///
 
+    if (keys[DIK_W]) {
+      cameraPosition.z -= velocity; // 前に進む
+    }
+    if (keys[DIK_S]) {
+      cameraPosition.z += velocity; // 後ろに下がる
+    }
+    if (keys[DIK_A]) {
+      cameraPosition.x += velocity; // 左に移動
+    }
+    if (keys[DIK_D]) {
+      cameraPosition.x -= velocity; // 右に移動
+    }
+
+    rotate.y += 0.016f;
+
+    if (rotate.y > 360.0f) {
+      rotate.y -= 360.0f;
+    }
+
+    Matrix4x4 worldMatrix =
+        MakeAffineMatrix({1.0f, 1.0f, 1.0f}, rotate, translate);
+    Matrix4x4 cameraMatrix = MakeAffineMatrix(
+        {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, cameraPosition);
+    Matrix4x4 viewMatrix = Inverse(cameraMatrix);
+    Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(
+        0.45f, float(kWindowWidth) / float(kWindowHeight), 0.1f, 100.0f);
+    Matrix4x4 viewProjectionMatrix =
+        Multiply(worldMatrix, Multiply(viewMatrix, projectionMatrix));
+
+    Matrix4x4 viewportMatrix = MakeViewportMatrix(
+        0.0f, 0.0f, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
+
+    Vector3 screenVertices[3];
+    for (uint32_t i = 0; i < 3; i++) {
+      Vector3 ndcVertex = Transform(kLocalVertices[i], viewProjectionMatrix);
+      screenVertices[i] = Transform(ndcVertex, viewportMatrix);
+    }
+
     ///
     /// ↑更新処理ここまで
     ///
@@ -244,6 +504,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     ///
     /// ↓描画処理ここから
     ///
+
+    VectorScreenPrintf(0, 0, cross, "Cross");
+
+    Novice::DrawTriangle(int(screenVertices[0].x), int(screenVertices[0].y),
+                         int(screenVertices[1].x), int(screenVertices[1].y),
+                         int(screenVertices[2].x), int(screenVertices[2].y),
+                         RED, kFillModeSolid);
 
     ///
     /// ↑描画処理ここまで
