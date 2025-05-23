@@ -2,6 +2,7 @@
 #define _USE_MATH_DEFINES
 #include <assert.h>
 #include <cmath>
+#include <imgui.h>
 #include <math.h>
 
 const char kWindowTitle[] = "LE2C_01_アンドウ_カナデ_MT3";
@@ -403,7 +404,7 @@ void Matrix4x4ScreenPrintf(int x, int y, const Matrix4x4 &matrix,
 }
 
 void Vector3ScreenPrintf(int x, int y, const Vector3 &vector,
-                        const char *label) {
+                         const char *label) {
   Novice::ScreenPrintf(x, y, "%.02f", vector.x);
   Novice::ScreenPrintf(x + kColumnWidth, y, "%.02f", vector.y);
   Novice::ScreenPrintf(x + kColumnWidth * 2, y, "%.02f", vector.z);
@@ -441,6 +442,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     ///
     /// ↓描画処理ここから
     ///
+
+    ImGui::Begin("Window");
+
+    ImGui::End();
 
     ///
     /// ↑描画処理ここまで
