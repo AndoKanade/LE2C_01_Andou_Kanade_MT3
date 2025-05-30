@@ -62,6 +62,36 @@ struct Segment {
 
 #pragma region 関数
 
+Vector3 Add(const Vector3 &v1, const Vector3 &v2) {
+  Vector3 result;
+
+  result.x = v1.x + v2.x;
+  result.y = v1.y + v2.y;
+  result.z = v1.z + v2.z;
+
+  return result;
+}
+
+Vector3 Subtract(const Vector3 &v1, const Vector3 &v2) {
+  Vector3 result;
+
+  result.x = v1.x - v2.x;
+  result.y = v1.y - v2.y;
+  result.z = v1.z - v2.z;
+
+  return result;
+}
+
+Vector3 Multiply(float scalar, const Vector3 &v) {
+  Vector3 result;
+
+  result.x = scalar * v.x;
+  result.y = scalar * v.y;
+  result.z = scalar * v.z;
+
+  return result;
+}
+
 Matrix4x4 Add(const Matrix4x4 &m1, const Matrix4x4 &m2) {
   Matrix4x4 result;
   result.m[0][0] = m1.m[0][0] + m2.m[0][0];
@@ -553,7 +583,7 @@ Vector3 ClosestPoint(const Vector3 &point, const Segment &segment) {
     return segment.origin;
   if (t >= 1.0f)
     return segment.diff;
-  return segment.origin + ab * t;
+  return segment.origin + (segment.diff * t);
 };
 
 static const int kRowheight = 20;
@@ -603,8 +633,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   Vector3 project = Project(Subtract(point, segment.origin), segment.diff);
 
-  Vector3 clossestPoint = ClosestPoint(point, segment);
-
   // ウィンドウの×ボタンが押されるまでループ
   while (Novice::ProcessMessage() == 0) {
     // フレームの開始
@@ -617,6 +645,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     ///
     /// ↓更新処理ここから
     ///
+
+    Vector3 clossestPoint = ClosestPoint(point, segment);
 
     Matrix4x4 cameraMatrix =
         MakeAffineMatrix({1.0f, 1.0f, 1.0f}, cameraRotate, cameraTranslate);
@@ -653,11 +683,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
     DrawSphere(pointSphere, viewProjectionMatrix, viewportMatrix, RED);
     DrawSphere(clossestSphire, viewProjectionMatrix, viewportMatrix, BLACK);
+    DrawGrid(viewProjectionMatrix, viewportMatrix);
+
     Novice::DrawLine(int(start.x), int(start.y), int(end.x), int(end.y), WHITE);
 
+    ImGui::Begin("line");
     ImGui::InputFloat3("Project", &project.x, "%0.3f",
                        ImGuiInputTextFlags_ReadOnly);
-
+    ImGui::DragFloat3("origin", &segment.origin.x, 0.1f);
+    ImGui::DragFloat3("diff", &segment.diff.x, 0.1f);
+    ImGui::End();
     ///
     /// ↑描画処理ここまで
     ///
