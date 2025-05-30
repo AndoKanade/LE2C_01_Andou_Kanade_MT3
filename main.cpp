@@ -17,6 +17,21 @@ typedef struct Vector3 {
   float z;
 } Vector3;
 
+struct Line {
+  Vector3 origin;
+  Vector3 diff;
+};
+
+struct Ray {
+  Vector3 origin;
+  Vector3 diff;
+};
+
+struct Segment {
+  Vector3 origin;
+  Vector3 diff;
+};
+
 #pragma region 関数
 
 Matrix4x4 Add(const Matrix4x4 &m1, const Matrix4x4 &m2) {
@@ -385,6 +400,14 @@ Vector3 Cross(const Vector3 &v1, const Vector3 &v2) {
   return result;
 }
 
+Vector3 Project(const Vector3 &v1, const Vector3 &v2) {
+
+};
+
+Vector3 ClosestPoint(const Vector3 &point, const Segment &segment) {
+
+};
+
 static const int kRowheight = 20;
 
 static const int kColumnWidth = 60;
@@ -403,7 +426,7 @@ void Matrix4x4ScreenPrintf(int x, int y, const Matrix4x4 &matrix,
 }
 
 void Vector3ScreenPrintf(int x, int y, const Vector3 &vector,
-                        const char *label) {
+                         const char *label) {
   Novice::ScreenPrintf(x, y, "%.02f", vector.x);
   Novice::ScreenPrintf(x + kColumnWidth, y, "%.02f", vector.y);
   Novice::ScreenPrintf(x + kColumnWidth * 2, y, "%.02f", vector.z);
@@ -420,6 +443,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   // キー入力結果を受け取る箱
   char keys[256] = {0};
   char preKeys[256] = {0};
+
+  Sphere pointSphire
+
+
+  Segment segment{{-2.0f, -1.0f, 0.0f}, {3.0f, 2.0f, 2.0f}};
+  Vector3 point{-1.5f, 0.6f, 0.6f};
+
+  Vector3 project = Project(Subtract(point, segment.origin), segment.diff);
+
+  Vector3 clossestPoint = ClosestPoint(point, segment);
 
   // ウィンドウの×ボタンが押されるまでループ
   while (Novice::ProcessMessage() == 0) {
