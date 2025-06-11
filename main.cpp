@@ -43,6 +43,7 @@ typedef struct Vector3 {
 typedef struct Sphere {
   Vector3 center;
   float radius;
+  unsigned int color; // 色を追加
 } Sphere;
 
 struct Line {
@@ -586,6 +587,19 @@ Vector3 ClosestPoint(const Vector3 &point, const Segment &segment) {
   return segment.origin + (segment.diff * t);
 };
 
+float Length(const Vector3 &v) {
+  return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+}
+
+bool isCollision(Sphere &s1, Sphere &s2) {
+  float distance = Length(s2.center - s1.center);
+  if (distance <= s1.radius + s2.radius) {
+    s1.color = RED;
+    return true;
+  }
+  return false;
+}
+
 static const int kRowheight = 20;
 
 static const int kColumnWidth = 60;
@@ -628,10 +642,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   Vector3 cameraTranslate{0.0f, 1.9f, -6.49f};
   Vector3 cameraRotate{0.26f, 0.0f, 0.0f};
 
-  Segment segment{{-2.0f, -1.0f, 0.0f}, {3.0f, 2.0f, 2.0f}};
-  Vector3 point{-1.5f, 0.6f, 0.6f};
+  Sphere sphere = {{0.0f, 0.0f, 0.0f}, 0.6f, WHITE}; // 球の中心と半径
 
-  Vector3 project = Project(Subtract(point, segment.origin), segment.diff);
+  Sphere sphere2 = {{0.0f, 0.0f, 1.0f}, 0.4f, WHITE}; // 球の中心と半径
 
   // ウィンドウの×ボタンが押されるまでループ
   while (Novice::ProcessMessage() == 0) {
@@ -645,8 +658,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     ///
     /// ↓更新処理ここから
     ///
-
-    Vector3 clossestPoint = ClosestPoint(point, segment);
 
     Matrix4x4 cameraMatrix =
         MakeAffineMatrix({1.0f, 1.0f, 1.0f}, cameraRotate, cameraTranslate);
@@ -664,15 +675,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     Matrix4x4 viewportMatrix = MakeViewportMatrix(
         0.0f, 0.0f, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
 
-    Sphere pointSphere{point, 0.01f};
-    Sphere clossestSphire{clossestPoint, 0.01f};
-
-    Vector3 start = Transform(Transform(segment.origin, viewProjectionMatrix),
-                              viewportMatrix);
-    Vector3 end = Transform(
-        Transform(Add(segment.origin, segment.diff), viewProjectionMatrix),
-        viewportMatrix);
-
     ///
     /// ↑更新処理ここまで
     ///
@@ -681,18 +683,26 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     /// ↓描画処理ここから
     ///
 
-    DrawSphere(pointSphere, viewProjectionMatrix, viewportMatrix, RED);
-    DrawSphere(clossestSphire, viewProjectionMatrix, viewportMatrix, BLACK);
     DrawGrid(viewProjectionMatrix, viewportMatrix);
 
-    Novice::DrawLine(int(start.x), int(start.y), int(end.x), int(end.y), WHITE);
+    if (isCollision(sphere, sphere2)) {
+      DrawSphere(sphere, viewProjectionMatrix, viewportMatrix, RED);
+    } else {
+      DrawSphere(sphere, viewProjectionMatrix, viewportMatrix, WHITE);
+    }
 
-    ImGui::Begin("line");
-    ImGui::InputFloat3("Project", &project.x, "%0.3f",
-                       ImGuiInputTextFlags_ReadOnly);
-    ImGui::DragFloat3("origin", &segment.origin.x, 0.1f);
-    ImGui::DragFloat3("diff", &segment.diff.x, 0.1f);
+    DrawSphere(sphere2, viewProjectionMatrix, viewportMatrix,
+               sphere2.color); // 赤色の球を描画
+
+    ImGui::Begin("Matrix4x4 Debug");
+    if (ImGui::TreeNode("Sphere Settings")) {
+      ImGui::DragFloat3("Center", &sphere.center.x);
+      ImGui::SliderFloat("Radius", &sphere.radius, 0.0f, 100.0f);
+      ImGui::TreePop();
+    }
+
     ImGui::End();
+
     ///
     /// ↑描画処理ここまで
     ///
