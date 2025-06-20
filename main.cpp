@@ -1,5 +1,8 @@
+#define NOMINMAX
+#include <windows.h>
 #include <Novice.h>
 #define _USE_MATH_DEFINES
+#include <algorithm>
 #include <assert.h>
 #include <cmath>
 #include <imgui.h>
@@ -67,9 +70,56 @@ struct Plane {
   float distance;
 };
 
+struct Camera {
+  Vector3 position;
+  float yaw;   // 左右
+  float pitch; // 上下
+};
+
 #pragma endregion
 
 #pragma region 関数
+
+float Dot(const Vector3 &a, const Vector3 &b) {
+  return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+Vector3 Add(const Vector3 &v1, const Vector3 &v2) {
+  Vector3 result;
+
+  result.x = v1.x + v2.x;
+  result.y = v1.y + v2.y;
+  result.z = v1.z + v2.z;
+
+  return result;
+}
+
+Vector3 Subtract(const Vector3 &v1, const Vector3 &v2) {
+  Vector3 result;
+
+  result.x = v1.x - v2.x;
+  result.y = v1.y - v2.y;
+  result.z = v1.z - v2.z;
+
+  return result;
+}
+
+Vector3 Multiply(float scalar, const Vector3 &v) {
+  Vector3 result;
+
+  result.x = scalar * v.x;
+  result.y = scalar * v.y;
+  result.z = scalar * v.z;
+
+  return result;
+}
+
+Vector3 Normalize(const Vector3 &v) {
+  float length = std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+  if (length == 0.0f)
+    return {0, 0, 0};
+  return {v.x / length, v.y / length, v.z / length};
+}
 
 Matrix4x4 Add(const Matrix4x4 &m1, const Matrix4x4 &m2) {
   Matrix4x4 result;
@@ -437,6 +487,84 @@ Vector3 Cross(const Vector3 &v1, const Vector3 &v2) {
   return result;
 }
 
+Vector3 Project(const Vector3 &v1, const Vector3 &v2) {
+  float dot = v1.Dot(v2);
+  float lenSq = v2.LengthSquared();
+  if (lenSq == 0.0f)
+    return {0, 0, 0}; // v2がゼロベクトルなら射影はゼロベクトル
+  float scale = dot / lenSq;
+  return v2 * scale;
+};
+
+Vector3 ClosestPoint(const Vector3 &point, const Segment &segment) {
+  Vector3 ab = segment.diff - segment.origin;
+  Vector3 ap = point - segment.origin;
+
+  float abLenSq = ab.LengthSquared();
+  if (abLenSq == 0.0f)
+    return segment.origin; // degenerate segment
+
+  float t = ap.Dot(ab) / abLenSq;
+
+  if (t <= 0.0f)
+    return segment.origin;
+  if (t >= 1.0f)
+    return segment.diff;
+  return segment.origin + (segment.diff * t);
+};
+
+float Length(const Vector3 &v) {
+  return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+}
+
+// bool isCollision(Sphere &s1, Sphere &s2) {
+//   float distance = Length(s2.center - s1.center);
+//   if (distance <= s1.radius + s2.radius) {
+//     s1.color = RED;
+//     return true;
+//   }
+//   return false;
+// }
+
+bool IsCollision(const Sphere &sphere, const Plane &plane) {
+  float distance = Dot(plane.normal, sphere.center) - plane.distance;
+
+  // 距離の絶対値が半径以下なら衝突している
+  return std::abs(distance) <= sphere.radius;
+}
+
+Vector3 Perpendicular(const Vector3 &vector) {
+  if (vector.x != 0.0f || vector.y != 0.0f) {
+    return {-vector.y, vector.x, 0.0f};
+  }
+  return {0.0f, -vector.z, vector.y};
+}
+
+static const int kRowheight = 20;
+
+static const int kColumnWidth = 60;
+
+void Matrix4x4ScreenPrintf(int x, int y, const Matrix4x4 &matrix,
+                           const char *lavel) {
+
+  Novice::ScreenPrintf(x, y, lavel);
+  for (int row = 0; row < 4; row++) {
+    for (int column = 0; column < 4; column++) {
+      Novice::ScreenPrintf(x + column * kColumnWidth,
+                           y + (row + 1) * kRowheight, "%6.02f",
+                           matrix.m[row][column]);
+    }
+  }
+}
+
+void Vector3ScreenPrintf(int x, int y, const Vector3 &vector,
+                         const char *label) {
+  Novice::ScreenPrintf(x, y, "%.02f", vector.x);
+  Novice::ScreenPrintf(x + kColumnWidth, y, "%.02f", vector.y);
+  Novice::ScreenPrintf(x + kColumnWidth * 2, y, "%.02f", vector.z);
+  Novice::ScreenPrintf(x + kColumnWidth * 3, y, label);
+}
+
 void DrawGrid(const Matrix4x4 &viewProjectionMatrix,
               const Matrix4x4 &viewportMatrix) {
   const float kGridHalfWidth = 2.0f;
@@ -539,86 +667,56 @@ void DrawSphere(const Sphere &sphere, const Matrix4x4 &viewProjectionMatrix,
   }
 }
 
-Vector3 Project(const Vector3 &v1, const Vector3 &v2) {
-  float dot = v1.Dot(v2);
-  float lenSq = v2.LengthSquared();
-  if (lenSq == 0.0f)
-    return {0, 0, 0}; // v2がゼロベクトルなら射影はゼロベクトル
-  float scale = dot / lenSq;
-  return v2 * scale;
-};
+void DrawPlane(const Plane &plane, const Matrix4x4 &viewProjectionMatrix,
+               const Matrix4x4 &viewportMatrix, uint32_t color) {
+  // 法線を正規化（念のため）
+  Vector3 normal = Normalize(plane.normal);
 
-Vector3 ClosestPoint(const Vector3 &point, const Segment &segment) {
-  Vector3 ab = segment.diff - segment.origin;
-  Vector3 ap = point - segment.origin;
+  // 平面の中心点（法線方向に distance 分オフセット）
+  Vector3 center = Multiply(plane.distance, normal);
 
-  float abLenSq = ab.LengthSquared();
-  if (abLenSq == 0.0f)
-    return segment.origin; // degenerate segment
+  // 平面上の2つの直交ベクトルを生成
+  Vector3 right = Normalize(Perpendicular(normal));
+  Vector3 forward = Normalize(Cross(normal, right));
 
-  float t = ap.Dot(ab) / abLenSq;
+  // 平面のサイズ（適宜変更可能）
+  float halfSize = 2.0f;
 
-  if (t <= 0.0f)
-    return segment.origin;
-  if (t >= 1.0f)
-    return segment.diff;
-  return segment.origin + (segment.diff * t);
-};
+  // 4つの角の座標（時計回りに）
+  Vector3 corners[4];
+  corners[0] = Add(center, Add(Multiply(+halfSize, right),
+                               Multiply(+halfSize, forward))); // 右前
+  corners[1] = Add(center, Add(Multiply(-halfSize, right),
+                               Multiply(+halfSize, forward))); // 左前
+  corners[2] = Add(center, Add(Multiply(-halfSize, right),
+                               Multiply(-halfSize, forward))); // 左後
+  corners[3] = Add(center, Add(Multiply(+halfSize, right),
+                               Multiply(-halfSize, forward))); // 右後
 
-float Length(const Vector3 &v) {
-  return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
-}
-
-bool isCollision(Sphere &s1, Sphere &s2) {
-  float distance = Length(s2.center - s1.center);
-  if (distance <= s1.radius + s2.radius) {
-    s1.color = RED;
-    return true;
+  // 各頂点をスクリーン座標へ変換
+  for (int i = 0; i < 4; ++i) {
+    corners[i] =
+        Transform(Transform(corners[i], viewProjectionMatrix), viewportMatrix);
   }
-  return false;
-}
 
-bool IsCollision(const Sphere &sphere, const Plane &plane) {}
+  // 線を描画（4辺）
+  for (int i = 0; i < 4; ++i) {
+    const Vector3 &p1 = corners[i];
+    const Vector3 &p2 = corners[(i + 1) % 4];
 
-Vector3 Perpendicular(const Vector3 &vector) {
-  if (vector.x != 0.0f || vector.y != 0.0f) {
-    return {-vector.y, vector.x, 0.0f};
-  }
-  return {0.0f, -vector.z, vector.y};
-}
+    int x1 = static_cast<int>(p1.x);
+    int y1 = static_cast<int>(p1.y);
+    int x2 = static_cast<int>(p2.x);
+    int y2 = static_cast<int>(p2.y);
 
-static const int kRowheight = 20;
-
-static const int kColumnWidth = 60;
-
-void Matrix4x4ScreenPrintf(int x, int y, const Matrix4x4 &matrix,
-                           const char *lavel) {
-
-  Novice::ScreenPrintf(x, y, lavel);
-  for (int row = 0; row < 4; row++) {
-    for (int column = 0; column < 4; column++) {
-      Novice::ScreenPrintf(x + column * kColumnWidth,
-                           y + (row + 1) * kRowheight, "%6.02f",
-                           matrix.m[row][column]);
-    }
+    Novice::DrawLine(x1, y1, x2, y2, color);
   }
 }
 
-void Vector3ScreenPrintf(int x, int y, const Vector3 &vector,
-                         const char *label) {
-  Novice::ScreenPrintf(x, y, "%.02f", vector.x);
-  Novice::ScreenPrintf(x + kColumnWidth, y, "%.02f", vector.y);
-  Novice::ScreenPrintf(x + kColumnWidth * 2, y, "%.02f", vector.z);
-  Novice::ScreenPrintf(x + kColumnWidth * 3, y, label);
-}
-
-void DrawPlane(const Plane& plane, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color) {
-  Vector3 center = Multiply(plane.distance, plane.normal);
-
-
-
-}
 #pragma endregion
+
+const int kWindowWidth = 1280;
+const int kWindowHeight = 720;
 
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
@@ -629,6 +727,27 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   // キー入力結果を受け取る箱
   char keys[256] = {0};
   char preKeys[256] = {0};
+
+  const float rotateSensitivity = 0.003f;
+  const float zoomSensitivity = 0.05f;
+  const float panSensitivity = 0.01f;
+  static int prevMouseX = 0, prevMouseY = 0;
+  int mouseX, mouseY;
+
+  // カメラ用変数（グローバル or クラス内）
+  Vector3 target = {0.0f, 0.0f, 0.0f};
+  float distance = 10.0f;
+
+  Vector3 cameraTranslate{0.0f, 1.9f, -6.49f};
+  Vector3 cameraRotate{0.26f, 0.0f, 0.0f};
+
+  Camera camera = {cameraTranslate, 0.0f, 0.0f};
+
+  Sphere sphere = {{0.0f, 0.0f, 0.0f}, 0.6f, WHITE}; // 球の中心と半径
+
+  Plane plane = {Normalize({0.0f, 1.0f, 1.0f}), 0.5f}; // 斜め上向き
+
+  unsigned int color = WHITE; // 球の色
 
   // ウィンドウの×ボタンが押されるまでループ
   while (Novice::ProcessMessage() == 0) {
@@ -643,6 +762,64 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     /// ↓更新処理ここから
     ///
 
+    // 入力
+    Novice::GetMousePosition(&mouseX, &mouseY);
+
+    // 回転（右クリックドラッグ）
+    if (!ImGui::GetIO().WantCaptureMouse && Novice::IsPressMouse(1)) {
+      int deltaX = mouseX - prevMouseX;
+      int deltaY = mouseY - prevMouseY;
+
+      cameraRotate.y += deltaX * rotateSensitivity;
+      cameraRotate.x -= deltaY * rotateSensitivity;
+
+      // 上下の回転制限（Blenderっぽく ±85°）
+      cameraRotate.x = std::clamp(cameraRotate.x, -1.48f, 1.48f);
+    }
+
+    // ズーム（マウスホイール）
+    int wheel = Novice::GetWheel();
+    if (wheel != 0) {
+      distance -= wheel * zoomSensitivity;
+      distance = std::max(distance, 1.0f); // 最小距離
+    }
+
+    // パン（ホイールクリックドラッグ）
+    if (!ImGui::GetIO().WantCaptureMouse && Novice::IsPressMouse(2)) {
+      int deltaX = mouseX - prevMouseX;
+      int deltaY = mouseY - prevMouseY;
+
+      // カメラの右ベクトルと上ベクトルでターゲットを移動
+      Vector3 right = {cosf(cameraRotate.y), 0, -sinf(cameraRotate.y)};
+      Vector3 up = {0, 1, 0};
+
+      target.x -= (right.x * deltaX + up.x * -deltaY) * panSensitivity;
+      target.y -= (right.y * deltaX + up.y * -deltaY) * panSensitivity;
+      target.z -= (right.z * deltaX + up.z * -deltaY) * panSensitivity;
+    }
+
+    prevMouseX = mouseX;
+    prevMouseY = mouseY;
+
+    // カメラ座標計算
+    cameraTranslate.x =
+        target.x + distance * cosf(cameraRotate.x) * sinf(cameraRotate.y);
+    cameraTranslate.y = target.y + distance * sinf(cameraRotate.x);
+    cameraTranslate.z =
+        target.z + distance * cosf(cameraRotate.x) * cosf(cameraRotate.y);
+
+    // 行列計算
+    Matrix4x4 cameraMatrix =
+        MakeAffineMatrix({1.0f, 1.0f, 1.0f}, cameraRotate, cameraTranslate);
+    Matrix4x4 viewMatrix = Inverse(cameraMatrix);
+
+    Matrix4x4 worldMatrix = MakeIdentity4x4();
+    Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(
+        0.45f, float(kWindowWidth) / float(kWindowHeight), 0.1f, 100.0f);
+    Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
+    Matrix4x4 viewportMatrix = MakeViewportMatrix(
+        0.0f, 0.0f, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
+
     ///
     /// ↑更新処理ここまで
     ///
@@ -651,7 +828,29 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     /// ↓描画処理ここから
     ///
 
+    DrawGrid(viewProjectionMatrix, viewportMatrix);
+
+    DrawPlane(plane, viewProjectionMatrix, viewportMatrix, color);
+
+    if (IsCollision(sphere, plane)) {
+      DrawSphere(sphere, viewProjectionMatrix, viewportMatrix, RED);
+    } else {
+      DrawSphere(sphere, viewProjectionMatrix, viewportMatrix, WHITE);
+    }
+
     ImGui::Begin("Window");
+
+    // Sphere.Center
+    ImGui::DragFloat3("Sphere.Center", &sphere.center.x, 0.01f);
+
+    // Sphere.Radius
+    ImGui::DragFloat("Sphere.Radius", &sphere.radius, 0.01f, 0.0f);
+
+    // Plane.Normal
+    ImGui::DragFloat3("Plane.Normal", &plane.normal.x, 0.01f);
+
+    // Plane.Distance
+    ImGui::DragFloat("Plane.Distance", &plane.distance, 0.01f);
 
     ImGui::End();
 
