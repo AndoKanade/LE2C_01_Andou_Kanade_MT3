@@ -7,6 +7,7 @@
 
 const char kWindowTitle[] = "LE2C_01_アンドウ_カナデ_MT3";
 
+#pragma region 構造体
 typedef struct Matrix4x4 {
 
   float m[4][4];
@@ -60,6 +61,13 @@ struct Segment {
   Vector3 origin;
   Vector3 diff;
 };
+
+struct Plane {
+  Vector3 normal;
+  float distance;
+};
+
+#pragma endregion
 
 #pragma region 関数
 
@@ -570,6 +578,15 @@ bool isCollision(Sphere &s1, Sphere &s2) {
   return false;
 }
 
+bool IsCollision(const Sphere &sphere, const Plane &plane) {}
+
+Vector3 Perpendicular(const Vector3 &vector) {
+  if (vector.x != 0.0f || vector.y != 0.0f) {
+    return {-vector.y, vector.x, 0.0f};
+  }
+  return {0.0f, -vector.z, vector.y};
+}
+
 static const int kRowheight = 20;
 
 static const int kColumnWidth = 60;
@@ -593,6 +610,13 @@ void Vector3ScreenPrintf(int x, int y, const Vector3 &vector,
   Novice::ScreenPrintf(x + kColumnWidth, y, "%.02f", vector.y);
   Novice::ScreenPrintf(x + kColumnWidth * 2, y, "%.02f", vector.z);
   Novice::ScreenPrintf(x + kColumnWidth * 3, y, label);
+}
+
+void DrawPlane(const Plane& plane, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color) {
+  Vector3 center = Multiply(plane.distance, plane.normal);
+
+
+
 }
 #pragma endregion
 
