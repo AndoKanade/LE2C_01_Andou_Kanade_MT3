@@ -65,6 +65,10 @@ struct Segment {
   Vector3 diff;
 };
 
+struct Triangle {
+  Vector3 vertices[3];
+};
+
 struct Plane {
   Vector3 normal;
   float distance;
@@ -549,6 +553,56 @@ bool IsCollision(const Segment &line, const Plane &plane) {
   return t >= 0.0f && t <= 1.0f;
 }
 
+bool IsCollision(const Triangle &triangle, const Segment &segment) {
+  Vector3 p = segment.origin;
+  Vector3 d = segment.diff;
+
+  Vector3 v0 = triangle.vertices[0];
+  Vector3 v1 = triangle.vertices[1];
+  Vector3 v2 = triangle.vertices[2];
+
+  // 三角形の辺ベクトル
+  Vector3 edge1 = v1 - v0;
+  Vector3 edge2 = v2 - v0;
+
+  // 平面の法線ベクトルを求める
+  Vector3 normal = Cross(edge1, edge2);
+
+  // 線分が平面と平行かをチェック
+  float denom = Dot(normal, d);
+  if (abs(denom) < 1e-6f) {
+    return false; // 平行
+  }
+
+  // 線分と平面の交点を求める
+  float t = Dot(normal, v0 - p) / denom;
+  if (t < 0.0f || t > 1.0f) {
+    return false; // 線分の範囲外
+  }
+
+  Vector3 intersection = p + d * t;
+
+  // 内積による三角形内包テスト
+  Vector3 v0p = intersection - v0;
+  Vector3 v1p = intersection - v1;
+  Vector3 v2p = intersection - v2;
+
+  Vector3 v01 = v1 - v0;
+  Vector3 v12 = v2 - v1;
+  Vector3 v20 = v0 - v2;
+
+  Vector3 cross0 = Cross(v01, v0p);
+  Vector3 cross1 = Cross(v12, v1p);
+  Vector3 cross2 = Cross(v20, v2p);
+
+  if (Dot(cross0, normal) >= 0.0f && Dot(cross1, normal) >= 0.0f &&
+      Dot(cross2, normal) >= 0.0f) {
+    return true; // 三角形内に交差
+  }
+
+  return false;
+}
+
 Vector3 Perpendicular(const Vector3 &vector) {
   if (vector.x != 0.0f || vector.y != 0.0f) {
     return {-vector.y, vector.x, 0.0f};
@@ -739,6 +793,29 @@ void DrawSegment(const Segment &segment, const Matrix4x4 &viewProjectionMatrix,
   // 線を描画
   Novice::DrawLine(int(startScreen.x), int(startScreen.y), int(endScreen.x),
                    int(endScreen.y), color);
+}
+
+void DrawTriangle(const Triangle &triangle,
+                  const Matrix4x4 &viewProjectionMatrix,
+                  const Matrix4x4 &viewportMatrix, uint32_t color) {
+
+  // 各頂点を変換
+  Vector3 ndc0 = Transform(triangle.vertices[0], viewProjectionMatrix);
+  Vector3 ndc1 = Transform(triangle.vertices[1], viewProjectionMatrix);
+  Vector3 ndc2 = Transform(triangle.vertices[2], viewProjectionMatrix);
+
+  // NDC → スクリーン座標へ変換
+  Vector3 screen0 = Transform(ndc0, viewportMatrix);
+  Vector3 screen1 = Transform(ndc1, viewportMatrix);
+  Vector3 screen2 = Transform(ndc2, viewportMatrix);
+
+  // 三角形を描画
+  Novice::DrawLine(int(screen0.x), int(screen0.y), int(screen1.x),
+                   int(screen1.y), color);
+  Novice::DrawLine(int(screen1.x), int(screen1.y), int(screen2.x),
+                   int(screen2.y), color);
+  Novice::DrawLine(int(screen2.x), int(screen2.y), int(screen0.x),
+                   int(screen0.y), color);
 }
 
 #pragma endregion
