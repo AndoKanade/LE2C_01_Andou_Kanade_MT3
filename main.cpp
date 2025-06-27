@@ -517,20 +517,36 @@ float Length(const Vector3 &v) {
   return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 }
 
-// bool isCollision(Sphere &s1, Sphere &s2) {
-//   float distance = Length(s2.center - s1.center);
-//   if (distance <= s1.radius + s2.radius) {
-//     s1.color = RED;
-//     return true;
-//   }
-//   return false;
-// }
+bool isCollision(Sphere &s1, Sphere &s2) {
+  float distance = Length(s2.center - s1.center);
+  if (distance <= s1.radius + s2.radius) {
+    s1.color = RED;
+    return true;
+  }
+  return false;
+}
 
 bool IsCollision(const Sphere &sphere, const Plane &plane) {
   float distance = Dot(plane.normal, sphere.center) - plane.distance;
 
   // 距離の絶対値が半径以下なら衝突している
   return std::abs(distance) <= sphere.radius;
+}
+
+bool IsCollision(const Segment &line, const Plane &plane) {
+  // まず垂直判定を行うために、法線と線の方向の内積を求める
+  float dot = Dot(plane.normal, line.diff);
+
+  // 垂直＝平行であるので、衝突しているはずがない
+  if (dot == 0.0f) {
+    return false;
+  }
+
+  // t を求める
+  float t = (plane.distance - Dot(line.origin, plane.normal)) / dot;
+
+  // t の値と線分の範囲によって衝突しているかを判断する
+  return t >= 0.0f && t <= 1.0f;
 }
 
 Vector3 Perpendicular(const Vector3 &vector) {
@@ -711,6 +727,18 @@ void DrawPlane(const Plane &plane, const Matrix4x4 &viewProjectionMatrix,
 
     Novice::DrawLine(x1, y1, x2, y2, color);
   }
+}
+
+void DrawSegment(const Segment &segment, const Matrix4x4 &viewProjectionMatrix,
+                 const Matrix4x4 &viewportMatrix, uint32_t color) {
+  // 始点と終点をスクリーン座標に変換
+  Vector3 startScreen = Transform(
+      Transform(segment.origin, viewProjectionMatrix), viewportMatrix);
+  Vector3 endScreen =
+      Transform(Transform(segment.diff, viewProjectionMatrix), viewportMatrix);
+  // 線を描画
+  Novice::DrawLine(int(startScreen.x), int(startScreen.y), int(endScreen.x),
+                   int(endScreen.y), color);
 }
 
 #pragma endregion
