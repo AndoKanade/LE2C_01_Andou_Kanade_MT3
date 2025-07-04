@@ -1029,7 +1029,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
              0xFF00FF00); // AABB1を緑色で描画
 
     DrawAABB(aabb2, viewProjectionMatrix, viewportMatrix,
-             0xFFFF0000); // AABB2を赤色で描画
+             WHITE); // AABB2を赤色で描画
 
     ImGui::Begin("Window");
 
