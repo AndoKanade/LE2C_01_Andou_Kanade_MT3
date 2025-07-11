@@ -16,6 +16,18 @@ typedef struct Matrix4x4 {
   float m[4][4];
 } Matrix4x4;
 
+struct Vector4 {
+  float x, y, z, w;
+
+  Vector4() = default;
+  Vector4(float _x, float _y, float _z, float _w)
+      : x(_x), y(_y), z(_z), w(_w) {}
+
+  Vector4 operator/(float scalar) const {
+    return Vector4(x / scalar, y / scalar, z / scalar, w / scalar);
+  }
+};
+
 typedef struct Vector3 {
   float x;
   float y;
@@ -43,6 +55,10 @@ typedef struct Vector3 {
   float LengthSquared() const { return x * x + y * y + z * z; }
 
 } Vector3;
+
+struct Vector2 {
+  float x, y;
+};
 
 typedef struct Sphere {
   Vector3 center;
@@ -78,6 +94,11 @@ struct Camera {
   Vector3 position;
   float yaw;   // 左右
   float pitch; // 上下
+};
+
+struct AABB {
+  Vector3 min; // 最小点
+  Vector3 max; // 最大点
 };
 
 #pragma endregion
@@ -281,6 +302,19 @@ Vector3 Transform(const Vector3 &vector, const Matrix4x4 &matrix) {
   result.y /= w;
   result.z /= w;
 
+  return result;
+}
+
+Vector4 Transform(const Vector4 &v, const Matrix4x4 &m) {
+  Vector4 result;
+  result.x =
+      v.x * m.m[0][0] + v.y * m.m[1][0] + v.z * m.m[2][0] + v.w * m.m[3][0];
+  result.y =
+      v.x * m.m[0][1] + v.y * m.m[1][1] + v.z * m.m[2][1] + v.w * m.m[3][1];
+  result.z =
+      v.x * m.m[0][2] + v.y * m.m[1][2] + v.z * m.m[2][2] + v.w * m.m[3][2];
+  result.w =
+      v.x * m.m[0][3] + v.y * m.m[1][3] + v.z * m.m[2][3] + v.w * m.m[3][3];
   return result;
 }
 
@@ -603,6 +637,27 @@ bool IsCollision(const Triangle &triangle, const Segment &segment) {
   return false;
 }
 
+bool IsCollision(const AABB &aabb1, const AABB &aabb2) {
+  return (aabb1.min.x <= aabb2.max.x && aabb1.max.x >= aabb2.min.x) && // x軸
+         (aabb1.min.y <= aabb2.max.y && aabb1.max.y >= aabb2.min.y) && // y軸
+         (aabb1.min.z <= aabb2.max.z && aabb1.max.z >= aabb2.min.z);   // z軸
+}
+
+bool IsCollision(const AABB &aabb, const Sphere &sphere) {
+  float clampedX = std::max(aabb.min.x, std::min(sphere.center.x, aabb.max.x));
+  float clampedY = std::max(aabb.min.y, std::min(sphere.center.y, aabb.max.y));
+  float clampedZ = std::max(aabb.min.z, std::min(sphere.center.z, aabb.max.z));
+
+  Vector3 closestPoint(clampedX, clampedY, clampedZ);
+
+  // 球の中心と最近接点の距離の二乗を計算
+  Vector3 diff = sphere.center - closestPoint;
+  float distSq = diff.LengthSquared();
+
+  // 距離の二乗が半径の二乗以下なら衝突している
+  return distSq <= sphere.radius * sphere.radius;
+}
+
 Vector3 Perpendicular(const Vector3 &vector) {
   if (vector.x != 0.0f || vector.y != 0.0f) {
     return {-vector.y, vector.x, 0.0f};
@@ -816,6 +871,41 @@ void DrawTriangle(const Triangle &triangle,
                    int(screen2.y), color);
   Novice::DrawLine(int(screen2.x), int(screen2.y), int(screen0.x),
                    int(screen0.y), color);
+}
+
+void DrawAABB(const AABB &aabb, const Matrix4x4 &viewProjectionMatrix,
+              const Matrix4x4 &viewportMatrix, uint32_t color) {
+  // AABBの8頂点をmin,maxを使って計算（ビット演算で組み合わせを生成）
+  Vector3 vertices[8];
+  for (int i = 0; i < 8; ++i) {
+    vertices[i].x = (i & 1) ? aabb.max.x : aabb.min.x; // ビット0でx決定
+    vertices[i].y = (i & 2) ? aabb.max.y : aabb.min.y; // ビット1でy決定
+    vertices[i].z = (i & 4) ? aabb.max.z : aabb.min.z; // ビット2でz決定
+  }
+
+  // 行列適用後の2D座標（スクリーン座標）
+  Vector2 screenPos[8];
+  for (int i = 0; i < 8; ++i) {
+    Vector3 world = vertices[i];
+    Vector4 clip = Transform(Vector4(world.x, world.y, world.z, 1.0f),
+                             viewProjectionMatrix);
+    Vector4 ndc = clip / clip.w; // 正規化デバイス座標
+    Vector4 screen = Transform(ndc, viewportMatrix);
+    screenPos[i] = {screen.x, screen.y};
+  }
+
+  // 12本のエッジを描画
+  int edges[12][2] = {
+      {0, 1}, {1, 3}, {3, 2}, {2, 0}, // 前面
+      {4, 5}, {5, 7}, {7, 6}, {6, 4}, // 背面
+      {0, 4}, {1, 5}, {2, 6}, {3, 7}  // 側面
+  };
+
+  for (int i = 0; i < 12; ++i) {
+    const auto &p1 = screenPos[edges[i][0]];
+    const auto &p2 = screenPos[edges[i][1]];
+    Novice::DrawLine((int)p1.x, (int)p1.y, (int)p2.x, (int)p2.y, color);
+  }
 }
 
 #pragma endregion
