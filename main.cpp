@@ -658,6 +658,43 @@ bool IsCollision(const AABB &aabb, const Sphere &sphere) {
   return distSq <= sphere.radius * sphere.radius;
 }
 
+bool IsCollision(const AABB &aabb, const Segment &segment) {
+  // SegmentをRayに変換（tの範囲は0〜1）
+  Vector3 dir = segment.diff; // 線分の方向（終点 - 始点）
+  Vector3 origin = segment.origin;
+
+  float tMin = 0.0f;
+  float tMax = 1.0f;
+
+  for (int i = 0; i < 3; ++i) {
+    float origin_i = (&origin.x)[i];
+    float dir_i = (&dir.x)[i];
+    float min_i = (&aabb.min.x)[i];
+    float max_i = (&aabb.max.x)[i];
+
+    if (std::abs(dir_i) < 1e-6f) {
+      // 線分がこの軸に平行
+      if (origin_i < min_i || origin_i > max_i) {
+        return false; // この軸のスラブを外れている
+      }
+    } else {
+      float t1 = (min_i - origin_i) / dir_i;
+      float t2 = (max_i - origin_i) / dir_i;
+      if (t1 > t2)
+        std::swap(t1, t2);
+
+      tMin = std::max(tMin, t1);
+      tMax = std::min(tMax, t2);
+
+      if (tMin > tMax) {
+        return false; // 交差区間が存在しない
+      }
+    }
+  }
+
+  return true; // 全軸で交差していれば衝突
+}
+
 Vector3 Perpendicular(const Vector3 &vector) {
   if (vector.x != 0.0f || vector.y != 0.0f) {
     return {-vector.y, vector.x, 0.0f};
@@ -940,11 +977,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 #pragma endregion
 
-  Sphere sphere{
-      .center{0.0f, 0.0f, 0.0f},
-      .radius{1.0f},
-      .color{WHITE},
-  };
+  Segment segment{.origin{-0.7f, 0.3f, 0.0f}, .diff{2.0f, -0.5f, 0.0f}};
 
   AABB aabb1{
       .min{-0.5f, -0.5f, -0.5f},
@@ -1036,13 +1069,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
     ///
     /// ↓描画処理ここから
-    ///
+    ///dek
 
     DrawGrid(viewProjectionMatrix, viewportMatrix);
 
-    DrawSphere(sphere, viewProjectionMatrix, viewportMatrix, sphere.color);
+    DrawSegment(segment, viewProjectionMatrix, viewportMatrix, WHITE);
 
-    if (IsCollision(aabb1, sphere)) {
+    if (IsCollision(aabb1, segment)) {
       DrawAABB(aabb1, viewProjectionMatrix, viewportMatrix, RED);
     } else {
       DrawAABB(aabb1, viewProjectionMatrix, viewportMatrix, WHITE);
@@ -1051,15 +1084,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     ImGui::Begin("Window");
 
     // AABBのmin,maxをドラッグで編集
-    ImGui::DragFloat3("Min", &aabb1.min.x, 0.1f);
-    ImGui::DragFloat3("Max", &aabb1.max.x, 0.1f);
+    ImGui::DragFloat3("AABB Min", &aabb1.min.x, 0.1f);
+    ImGui::DragFloat3("AABB Max", &aabb1.max.x, 0.1f);
 
-    // Sphereの中心座標をドラッグで編集
-    ImGui::DragFloat3("Sphere Center", &sphere.center.x, 0.1f);
-
-    // Sphereの半径をドラッグで編集
-    ImGui::DragFloat("Sphere Radius", &sphere.radius, 0.1f, 0.0f, FLT_MAX,
-                     "%.2f");
+    // Segmentのoriginとdiffをドラッグで編集
+    ImGui::DragFloat3("Segment Origin", &segment.origin.x, 0.1f);
+    ImGui::DragFloat3("Segment Diff", &segment.diff.x, 0.1f);
 
     ImGui::End();
 
