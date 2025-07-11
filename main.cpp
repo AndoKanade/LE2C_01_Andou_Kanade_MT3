@@ -977,13 +977,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 #pragma endregion
 
-  Segment segment{.origin{-0.7f, 0.3f, 0.0f}, .diff{2.0f, -0.5f, 0.0f}};
-
-  AABB aabb1{
-      .min{-0.5f, -0.5f, -0.5f},
-      .max{0.0f, 0.0f, 0.0f},
-  };
-
   // ウィンドウの×ボタンが押されるまでループ
   while (Novice::ProcessMessage() == 0) {
     // フレームの開始
@@ -1057,39 +1050,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         0.0f, 0.0f, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
 #pragma endregion
 
-    aabb1.min.x = (std::min)(aabb1.min.x, aabb1.max.x);
-    aabb1.min.y = (std::min)(aabb1.min.y, aabb1.max.y);
-
-    aabb1.max.x = (std::max)(aabb1.min.x, aabb1.max.x);
-    aabb1.max.y = (std::max)(aabb1.min.y, aabb1.max.y);
-
     ///
     /// ↑更新処理ここまで
     ///
 
     ///
     /// ↓描画処理ここから
-    ///dek
+    /// dek
 
     DrawGrid(viewProjectionMatrix, viewportMatrix);
 
-    DrawSegment(segment, viewProjectionMatrix, viewportMatrix, WHITE);
-
-    if (IsCollision(aabb1, segment)) {
-      DrawAABB(aabb1, viewProjectionMatrix, viewportMatrix, RED);
-    } else {
-      DrawAABB(aabb1, viewProjectionMatrix, viewportMatrix, WHITE);
-    }
-
     ImGui::Begin("Window");
-
-    // AABBのmin,maxをドラッグで編集
-    ImGui::DragFloat3("AABB Min", &aabb1.min.x, 0.1f);
-    ImGui::DragFloat3("AABB Max", &aabb1.max.x, 0.1f);
-
-    // Segmentのoriginとdiffをドラッグで編集
-    ImGui::DragFloat3("Segment Origin", &segment.origin.x, 0.1f);
-    ImGui::DragFloat3("Segment Diff", &segment.diff.x, 0.1f);
 
     ImGui::End();
 
