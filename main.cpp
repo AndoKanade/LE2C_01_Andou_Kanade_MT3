@@ -860,17 +860,13 @@ void DrawTriangle(const Triangle &triangle,
 
 void DrawAABB(const AABB &aabb, const Matrix4x4 &viewProjectionMatrix,
               const Matrix4x4 &viewportMatrix, uint32_t color) {
-  // AABBの8頂点
-  Vector3 vertices[8] = {
-      {aabb.min.x, aabb.min.y, aabb.min.z},
-      {aabb.max.x, aabb.min.y, aabb.min.z},
-      {aabb.min.x, aabb.max.y, aabb.min.z},
-      {aabb.max.x, aabb.max.y, aabb.min.z},
-      {aabb.min.x, aabb.min.y, aabb.max.z},
-      {aabb.max.x, aabb.min.y, aabb.max.z},
-      {aabb.min.x, aabb.max.y, aabb.max.z},
-      {aabb.max.x, aabb.max.y, aabb.max.z},
-  };
+  // AABBの8頂点をmin,maxを使って計算（ビット演算で組み合わせを生成）
+  Vector3 vertices[8];
+  for (int i = 0; i < 8; ++i) {
+    vertices[i].x = (i & 1) ? aabb.max.x : aabb.min.x; // ビット0でx決定
+    vertices[i].y = (i & 2) ? aabb.max.y : aabb.min.y; // ビット1でy決定
+    vertices[i].z = (i & 4) ? aabb.max.z : aabb.min.z; // ビット2でz決定
+  }
 
   // 行列適用後の2D座標（スクリーン座標）
   Vector2 screenPos[8];
@@ -896,6 +892,7 @@ void DrawAABB(const AABB &aabb, const Matrix4x4 &viewProjectionMatrix,
     Novice::DrawLine((int)p1.x, (int)p1.y, (int)p2.x, (int)p2.y, color);
   }
 }
+
 
 #pragma endregion
 
@@ -1025,15 +1022,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
     DrawGrid(viewProjectionMatrix, viewportMatrix);
 
-    DrawAABB(aabb1, viewProjectionMatrix, viewportMatrix,
-             0xFF00FF00); // AABB1を緑色で描画
+    if (IsCollision(aabb1, aabb2)) {
+      DrawAABB(aabb1, viewProjectionMatrix, viewportMatrix, RED);
 
-    DrawAABB(aabb2, viewProjectionMatrix, viewportMatrix,
-             WHITE); // AABB2を赤色で描画
+      DrawAABB(aabb2, viewProjectionMatrix, viewportMatrix, RED);
+    } else {
+      DrawAABB(aabb1, viewProjectionMatrix, viewportMatrix, WHITE);
+
+      DrawAABB(aabb2, viewProjectionMatrix, viewportMatrix, WHITE);
+    }
 
     ImGui::Begin("Window");
 
-        // AABBのmin,maxをドラッグで編集
+    // AABBのmin,maxをドラッグで編集
     ImGui::DragFloat3("Min", &aabb1.min.x, 0.1f);
     ImGui::DragFloat3("Max", &aabb1.max.x, 0.1f);
 
