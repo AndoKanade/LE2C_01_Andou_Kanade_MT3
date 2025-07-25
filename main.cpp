@@ -574,8 +574,8 @@ float Length(const Vector3 &v) {
   return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 }
 
-Vector3 Lerp(const Vector3 &v1, const Vector3 &v2, float t) {
-  return v1 * (1.0f - t) + v2 * t;
+Vector3 Lerp(const Vector3 &a, const Vector3 &b, float t) {
+  return a + (b - a) * t;
 }
 
 #pragma endregion
@@ -858,25 +858,6 @@ void DrawSphere(const Sphere &sphere, const Matrix4x4 &viewProjectionMatrix,
   }
 }
 
-void DrawSphere(const Vector3 &worldPos, float radius,
-                const Matrix4x4 &viewProjectionMatrix,
-                const Matrix4x4 &viewportMatrix, uint32_t color) {
-  // ワールド→クリップ→NDC→スクリーン
-  Vector4 clip = viewProjectionMatrix * Vector4(worldPos, 1.0f);
-  if (clip.w == 0.0f)
-    return;
-
-  Vector3 ndc = {clip.x / clip.w, clip.y / clip.w, clip.z / clip.w};
-  Vector4 screen = viewportMatrix * Vector4(ndc, 1.0f);
-
-  // 2D円として描く（画面上の位置に黒い円を描画）
-  int x = static_cast<int>(screen.x);
-  int y = static_cast<int>(screen.y);
-  int r = static_cast<int>(radius * 100); // スケール調整（適宜調整）
-
-  Novice::DrawEllipse(x, y, r, r, 0.0f, color, kFillModeSolid);
-}
-
 void DrawPlane(const Plane &plane, const Matrix4x4 &viewProjectionMatrix,
                const Matrix4x4 &viewportMatrix, uint32_t color) {
   // 法線を正規化（念のため）
@@ -998,11 +979,10 @@ void DrawBezier(const Vector3 &p0, const Vector3 &p1, const Vector3 &p2,
                 const Matrix4x4 &viewportMatrix, uint32_t color) {
   const int segments = 100;
 
-  for (int i = 0; i < segments; ++i) {
-    float t1 = (float)i / segments;
-    float t2 = (float)(i + 1) / segments;
+  for (int i = 0; i < segments - 1; ++i) {
+    float t1 = (float)i / (segments - 1);
+    float t2 = (float)(i + 1) / (segments - 1);
 
-    // ベジェ補間
     Vector3 a1 = Lerp(p0, p1, t1);
     Vector3 b1 = Lerp(p1, p2, t1);
     Vector3 pt1 = Lerp(a1, b1, t1);
@@ -1011,24 +991,16 @@ void DrawBezier(const Vector3 &p0, const Vector3 &p1, const Vector3 &p2,
     Vector3 b2 = Lerp(p1, p2, t2);
     Vector3 pt2 = Lerp(a2, b2, t2);
 
-    // 座標変換
-    Vector4 clip1 = viewProjectionMatrix * Vector4(pt1, 1.0f);
-    Vector4 clip2 = viewProjectionMatrix * Vector4(pt2, 1.0f);
+    // Segment構造体を作成
+    Segment segment;
+    segment.origin = pt1;
+    segment.diff = pt2;
 
-    if (clip1.w == 0.0f || clip2.w == 0.0f)
-      continue;
-
-    Vector3 ndc1 = {clip1.x / clip1.w, clip1.y / clip1.w, clip1.z / clip1.w};
-    Vector3 ndc2 = {clip2.x / clip2.w, clip2.y / clip2.w, clip2.z / clip2.w};
-
-    Vector4 screen1 = viewportMatrix * Vector4(ndc1, 1.0f);
-    Vector4 screen2 = viewportMatrix * Vector4(ndc2, 1.0f);
-
-    // Novice::DrawLine で描画（整数座標に丸める）
-    Novice::DrawLine((int)screen1.x, (int)screen1.y, (int)screen2.x,
-                     (int)screen2.y, color);
+    // DrawSegmentを呼び出して線を描画
+    DrawSegment(segment, viewProjectionMatrix, viewportMatrix, color);
   }
 }
+
 
 #pragma endregion
 
@@ -1067,6 +1039,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       {1.76f, 1.0f, -0.3f},
       {0.94f, -0.7f, 2.3f},
   };
+
+  Sphere spheres[3]{};
+
+  spheres[0] = {controlPoints[0], 0.1f, BLACK};
+
+  spheres[1] = {controlPoints[1], 0.1f, BLACK},
+
+  spheres[2] = {controlPoints[2], 0.1f, BLACK};
 
   // ウィンドウの×ボタンが押されるまでループ
   while (Novice::ProcessMessage() == 0) {
@@ -1141,6 +1121,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         0.0f, 0.0f, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
 #pragma endregion
 
+    spheres[0] = {controlPoints[0], 0.01f, BLACK};
+
+    spheres[1] = {controlPoints[1], 0.01f, BLACK},
+
+    spheres[2] = {controlPoints[2], 0.01f, BLACK};
+
     ///
     /// ↑更新処理ここまで
     ///
@@ -1151,10 +1137,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
     DrawGrid(viewProjectionMatrix, viewportMatrix);
 
-    for (int i = 0; i < 3; ++i) {
-      DrawSphere(controlPoints[i], 0.1f, viewProjectionMatrix, viewportMatrix,
-                 0x000000);
-    }
+    DrawSphere(spheres[0], viewProjectionMatrix, viewportMatrix,
+               spheres[0].color);
+    DrawSphere(spheres[1], viewProjectionMatrix, viewportMatrix,
+               spheres[1].color);
+    DrawSphere(spheres[2], viewProjectionMatrix, viewportMatrix,
+               spheres[2].color);
 
     DrawBezier(controlPoints[0], controlPoints[1], controlPoints[2],
                viewProjectionMatrix, viewportMatrix, BLUE);
