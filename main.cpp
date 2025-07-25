@@ -4,6 +4,7 @@
 #define _USE_MATH_DEFINES
 #include <algorithm>
 #include <assert.h>
+#include <chrono>
 #include <cmath>
 #include <imgui.h>
 #include <math.h>
@@ -268,6 +269,17 @@ Matrix4x4 MakeRotateZMatrix(float radian) {
   return result;
 }
 
+Matrix4x4 MakeRotateXYZMatrix(const Vector3 &rotate) {
+  Matrix4x4 rotateX = MakeRotateXMatrix(rotate.x);
+  Matrix4x4 rotateY = MakeRotateYMatrix(rotate.y);
+  Matrix4x4 rotateZ = MakeRotateZMatrix(rotate.z);
+
+  // 合成：Z → X → Y の順で掛け算
+  Matrix4x4 result = Multiply(rotateZ, rotateX);
+  result = Multiply(result, rotateY);
+  return result;
+}
+
 Matrix4x4 MakeAffineMatrix(const Vector3 &scale, const Vector3 &rotate,
                            const Vector3 &translate) {
 
@@ -315,6 +327,17 @@ Vector4 Transform(const Vector4 &v, const Matrix4x4 &m) {
       v.x * m.m[0][2] + v.y * m.m[1][2] + v.z * m.m[2][2] + v.w * m.m[3][2];
   result.w =
       v.x * m.m[0][3] + v.y * m.m[1][3] + v.z * m.m[2][3] + v.w * m.m[3][3];
+  return result;
+}
+
+Vector3 Transform(const Vector3 &v, const Matrix4x4 &mat1,
+                  const Matrix4x4 &mat2) {
+  // mat1 * v
+  Vector3 temp = Transform(v, mat1);
+
+  // mat2 * temp
+  Vector3 result = Transform(temp, mat2);
+
   return result;
 }
 
@@ -550,6 +573,22 @@ Vector3 ClosestPoint(const Vector3 &point, const Segment &segment) {
     return segment.diff;
   return segment.origin + (segment.diff * t);
 };
+
+Matrix4x4 ComputeLocalMatrix(const Vector3 &scale, const Vector3 &rotate,
+                             const Vector3 &translate) {
+  Matrix4x4 scaleMatrix = MakeScaleMatrix(scale);
+  Matrix4x4 rotateMatrix = MakeRotateXYZMatrix(rotate);
+  Matrix4x4 translateMatrix = MakeTranslateMatrix(translate);
+
+  Matrix4x4 localMatrix = Multiply(scaleMatrix, rotateMatrix);
+  localMatrix = Multiply(localMatrix, translateMatrix);
+  return localMatrix;
+}
+
+Matrix4x4 ComputeWorldMatrix(const Matrix4x4 &localMatrix,
+                             const Matrix4x4 &parentWorldMatrix) {
+  return Multiply(localMatrix, parentWorldMatrix);
+}
 
 float Length(const Vector3 &v) {
   return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
@@ -945,6 +984,68 @@ void DrawAABB(const AABB &aabb, const Matrix4x4 &viewProjectionMatrix,
   }
 }
 
+void UpdateHierarchy(Vector3 translates[3], Vector3 rotates[3],
+                     Vector3 scales[3], const Matrix4x4 &viewProjectionMatrix,
+                     const Matrix4x4 &viewportMatrix) {
+  // 各ローカル行列とワールド行列を用意
+  Matrix4x4 localMatrices[3];
+  Matrix4x4 worldMatrices[3];
+
+  // ローカル行列を作成
+  for (int i = 0; i < 3; ++i) {
+    localMatrices[i] = ComputeLocalMatrix(scales[i], rotates[i], translates[i]);
+  }
+
+  // 階層的にワールド行列を計算
+  worldMatrices[0] = localMatrices[0]; // 肩（ルート）
+  worldMatrices[1] =
+      ComputeWorldMatrix(localMatrices[1], worldMatrices[0]); // 肘
+  worldMatrices[2] =
+      ComputeWorldMatrix(localMatrices[2], worldMatrices[1]); // 手
+
+  Vector3 screenPositions[3];
+  for (int i = 0; i < 3; ++i) {
+    Vector3 pos = {worldMatrices[i].m[3][0], worldMatrices[i].m[3][1],
+                   worldMatrices[i].m[3][2]};
+    screenPositions[i] =
+        Transform(Transform(pos, viewProjectionMatrix), viewportMatrix);
+  }
+
+  Novice::DrawLine((int)screenPositions[0].x, (int)screenPositions[0].y,
+                   (int)screenPositions[1].x, (int)screenPositions[1].y, BLACK);
+  Novice::DrawLine((int)screenPositions[1].x, (int)screenPositions[1].y,
+                   (int)screenPositions[2].x, (int)screenPositions[2].y, BLACK);
+
+
+  // Sphere 構造体を使って球体を構築・描画
+  Sphere spheres[3] = {
+      {screenPositions[0], 5.0f, 0xFF0000FF}, // 赤（肩）
+      {screenPositions[1], 5.0f, 0xFF00FF00}, // 緑（肘）
+      {screenPositions[2], 5.0f, 0xFFFF0000}  // 青（手）
+  };
+
+// ワールド座標を直接渡す（TransformはDrawSphereの中でやる）
+  Sphere spheres[3] = {
+      {{worldMatrices[0].m[3][0], worldMatrices[0].m[3][1],
+        worldMatrices[0].m[3][2]},
+       5.0f,
+       0xFF0000FF},
+      {{worldMatrices[1].m[3][0], worldMatrices[1].m[3][1],
+        worldMatrices[1].m[3][2]},
+       5.0f,
+       0xFF00FF00},
+      {{worldMatrices[2].m[3][0], worldMatrices[2].m[3][1],
+        worldMatrices[2].m[3][2]},
+       5.0f,
+       0xFFFF0000},
+  };
+
+  for (int i = 0; i < 3; ++i) {
+    DrawSphere(spheres[i], viewProjectionMatrix, viewportMatrix,
+               spheres[i].color);
+  }
+}
+
 #pragma endregion
 
 const int kWindowWidth = 1280;
@@ -976,6 +1077,24 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   Camera camera = {cameraTranslate, 0.0f, 0.0f};
 
 #pragma endregion
+
+  Vector3 translates[3] = {
+      {0.2f, 1.0f, 0.0f}, // 肩
+      {0.4f, 0.0f, 0.0f}, // 肘
+      {0.6f, 0.0f, 0.0f}  // 手
+  };
+
+  Vector3 rotates[3] = {
+      {0.0f, 0.0f, -6.0f}, // 肩
+      {0.0f, 0.0f, 45.0f}, // 肘
+      {0.0f, 0.0f, 0.0f}   // 手
+  };
+
+  Vector3 scales[3] = {
+      {1.0f, 1.0f, 1.0f}, // 肩
+      {1.0f, 1.0f, 1.0f}, // 肘
+      {1.0f, 1.0f, 1.0f}  // 手
+  };
 
   // ウィンドウの×ボタンが押されるまでループ
   while (Novice::ProcessMessage() == 0) {
@@ -1050,6 +1169,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         0.0f, 0.0f, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
 #pragma endregion
 
+    UpdateHierarchy(translates, rotates, scales, viewProjectionMatrix,
+                    viewportMatrix);
+
     ///
     /// ↑更新処理ここまで
     ///
@@ -1060,8 +1182,24 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
     DrawGrid(viewProjectionMatrix, viewportMatrix);
 
-    ImGui::Begin("Window");
+    ImGui::Begin("Hierarchy Control");
 
+    const char *labels[3] = {"Shoulder", "Elbow", "Hand"};
+
+    ImGui::SeparatorText("Shoulder");
+    ImGui::DragFloat3("Shoulder Translate", &translates[0].x, 0.01f);
+    ImGui::DragFloat3("Shoulder Rotate", &rotates[0].x, 0.1f);
+    ImGui::DragFloat3("Shoulder Scale", &scales[0].x, 0.01f);
+
+    ImGui::SeparatorText("Elbow");
+    ImGui::DragFloat3("Elbow Translate", &translates[1].x, 0.01f);
+    ImGui::DragFloat3("Elbow Rotate", &rotates[1].x, 0.1f);
+    ImGui::DragFloat3("Elbow Scale", &scales[1].x, 0.01f);
+
+    ImGui::SeparatorText("Hand");
+    ImGui::DragFloat3("Hand Translate", &translates[2].x, 0.01f);
+    ImGui::DragFloat3("Hand Rotate", &rotates[2].x, 0.1f);
+    ImGui::DragFloat3("Hand Scale", &scales[2].x, 0.01f);
     ImGui::End();
 
     ///
