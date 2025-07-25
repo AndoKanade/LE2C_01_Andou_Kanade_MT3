@@ -4,6 +4,7 @@
 #define _USE_MATH_DEFINES
 #include <algorithm>
 #include <assert.h>
+#include <chrono>
 #include <cmath>
 #include <imgui.h>
 #include <math.h>
@@ -11,22 +12,6 @@
 const char kWindowTitle[] = "LE2C_01_アンドウ_カナデ_MT3";
 
 #pragma region 構造体
-typedef struct Matrix4x4 {
-
-  float m[4][4];
-} Matrix4x4;
-
-struct Vector4 {
-  float x, y, z, w;
-
-  Vector4() = default;
-  Vector4(float _x, float _y, float _z, float _w)
-      : x(_x), y(_y), z(_z), w(_w) {}
-
-  Vector4 operator/(float scalar) const {
-    return Vector4(x / scalar, y / scalar, z / scalar, w / scalar);
-  }
-};
 
 typedef struct Vector3 {
   float x;
@@ -55,6 +40,40 @@ typedef struct Vector3 {
   float LengthSquared() const { return x * x + y * y + z * z; }
 
 } Vector3;
+
+struct Vector4 {
+  float x, y, z, w;
+
+  // 明示的に 0 初期化するデフォルトコンストラクタ
+  Vector4() : x(0), y(0), z(0), w(0) {}
+
+  Vector4(float _x, float _y, float _z, float _w)
+      : x(_x), y(_y), z(_z), w(_w) {}
+
+  Vector4(const Vector3 &v, float _w) : x(v.x), y(v.y), z(v.z), w(_w) {}
+
+  Vector4(const Vector4 &other) = default;
+  Vector4 &operator=(const Vector4 &other) = default;
+
+  Vector4 operator/(float scalar) const {
+    return Vector4(x / scalar, y / scalar, z / scalar, w / scalar);
+  }
+};
+
+typedef struct Matrix4x4 {
+
+  float m[4][4];
+
+  Vector4 operator*(const Vector4 &v) const {
+    Vector4 result;
+    result.x = m[0][0] * v.x + m[0][1] * v.y + m[0][2] * v.z + m[0][3] * v.w;
+    result.y = m[1][0] * v.x + m[1][1] * v.y + m[1][2] * v.z + m[1][3] * v.w;
+    result.z = m[2][0] * v.x + m[2][1] * v.y + m[2][2] * v.z + m[2][3] * v.w;
+    result.w = m[3][0] * v.x + m[3][1] * v.y + m[3][2] * v.z + m[3][3] * v.w;
+    return result;
+  }
+
+} Matrix4x4;
 
 struct Vector2 {
   float x, y;
@@ -103,7 +122,7 @@ struct AABB {
 
 #pragma endregion
 
-#pragma region 関数
+#pragma region 数学関数
 
 float Dot(const Vector3 &a, const Vector3 &b) {
   return a.x * b.x + a.y * b.y + a.z * b.z;
@@ -555,6 +574,14 @@ float Length(const Vector3 &v) {
   return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 }
 
+Vector3 Lerp(const Vector3 &v1, const Vector3 &v2, float t) {
+  return v1 * (1.0f - t) + v2 * t;
+}
+
+#pragma endregion
+
+#pragma region 衝突関数
+
 bool isCollision(Sphere &s1, Sphere &s2) {
   float distance = Length(s2.center - s1.center);
   if (distance <= s1.radius + s2.radius) {
@@ -702,10 +729,12 @@ Vector3 Perpendicular(const Vector3 &vector) {
   return {0.0f, -vector.z, vector.y};
 }
 
-static const int kRowheight = 20;
+#pragma endregion
 
+static const int kRowheight = 20;
 static const int kColumnWidth = 60;
 
+#pragma region 描画関数
 void Matrix4x4ScreenPrintf(int x, int y, const Matrix4x4 &matrix,
                            const char *lavel) {
 
@@ -829,6 +858,25 @@ void DrawSphere(const Sphere &sphere, const Matrix4x4 &viewProjectionMatrix,
   }
 }
 
+void DrawSphere(const Vector3 &worldPos, float radius,
+                const Matrix4x4 &viewProjectionMatrix,
+                const Matrix4x4 &viewportMatrix, uint32_t color) {
+  // ワールド→クリップ→NDC→スクリーン
+  Vector4 clip = viewProjectionMatrix * Vector4(worldPos, 1.0f);
+  if (clip.w == 0.0f)
+    return;
+
+  Vector3 ndc = {clip.x / clip.w, clip.y / clip.w, clip.z / clip.w};
+  Vector4 screen = viewportMatrix * Vector4(ndc, 1.0f);
+
+  // 2D円として描く（画面上の位置に黒い円を描画）
+  int x = static_cast<int>(screen.x);
+  int y = static_cast<int>(screen.y);
+  int r = static_cast<int>(radius * 100); // スケール調整（適宜調整）
+
+  Novice::DrawEllipse(x, y, r, r, 0.0f, color, kFillModeSolid);
+}
+
 void DrawPlane(const Plane &plane, const Matrix4x4 &viewProjectionMatrix,
                const Matrix4x4 &viewportMatrix, uint32_t color) {
   // 法線を正規化（念のため）
@@ -945,6 +993,43 @@ void DrawAABB(const AABB &aabb, const Matrix4x4 &viewProjectionMatrix,
   }
 }
 
+void DrawBezier(const Vector3 &p0, const Vector3 &p1, const Vector3 &p2,
+                const Matrix4x4 &viewProjectionMatrix,
+                const Matrix4x4 &viewportMatrix, uint32_t color) {
+  const int segments = 100;
+
+  for (int i = 0; i < segments; ++i) {
+    float t1 = (float)i / segments;
+    float t2 = (float)(i + 1) / segments;
+
+    // ベジェ補間
+    Vector3 a1 = Lerp(p0, p1, t1);
+    Vector3 b1 = Lerp(p1, p2, t1);
+    Vector3 pt1 = Lerp(a1, b1, t1);
+
+    Vector3 a2 = Lerp(p0, p1, t2);
+    Vector3 b2 = Lerp(p1, p2, t2);
+    Vector3 pt2 = Lerp(a2, b2, t2);
+
+    // 座標変換
+    Vector4 clip1 = viewProjectionMatrix * Vector4(pt1, 1.0f);
+    Vector4 clip2 = viewProjectionMatrix * Vector4(pt2, 1.0f);
+
+    if (clip1.w == 0.0f || clip2.w == 0.0f)
+      continue;
+
+    Vector3 ndc1 = {clip1.x / clip1.w, clip1.y / clip1.w, clip1.z / clip1.w};
+    Vector3 ndc2 = {clip2.x / clip2.w, clip2.y / clip2.w, clip2.z / clip2.w};
+
+    Vector4 screen1 = viewportMatrix * Vector4(ndc1, 1.0f);
+    Vector4 screen2 = viewportMatrix * Vector4(ndc2, 1.0f);
+
+    // Novice::DrawLine で描画（整数座標に丸める）
+    Novice::DrawLine((int)screen1.x, (int)screen1.y, (int)screen2.x,
+                     (int)screen2.y, color);
+  }
+}
+
 #pragma endregion
 
 const int kWindowWidth = 1280;
@@ -976,6 +1061,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   Camera camera = {cameraTranslate, 0.0f, 0.0f};
 
 #pragma endregion
+
+  Vector3 controlPoints[3] = {
+      {-0.8f, 0.58f, 1.0f},
+      {1.76f, 1.0f, -0.3f},
+      {0.94f, -0.7f, 2.3f},
+  };
 
   // ウィンドウの×ボタンが押されるまでループ
   while (Novice::ProcessMessage() == 0) {
@@ -1056,11 +1147,23 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
     ///
     /// ↓描画処理ここから
-    /// dek
+    ///
 
     DrawGrid(viewProjectionMatrix, viewportMatrix);
 
+    for (int i = 0; i < 3; ++i) {
+      DrawSphere(controlPoints[i], 0.1f, viewProjectionMatrix, viewportMatrix,
+                 0x000000);
+    }
+
+    DrawBezier(controlPoints[0], controlPoints[1], controlPoints[2],
+               viewProjectionMatrix, viewportMatrix, BLUE);
+
     ImGui::Begin("Window");
+
+    ImGui::DragFloat3("controlPoints[0]", &controlPoints[0].x, 0.01f);
+    ImGui::DragFloat3("controlPoints[1]", &controlPoints[1].x, 0.01f);
+    ImGui::DragFloat3("controlPoints[2]", &controlPoints[2].x, 0.01f);
 
     ImGui::End();
 
