@@ -1011,33 +1011,30 @@ void UpdateHierarchy(Vector3 translates[3], Vector3 rotates[3],
         Transform(Transform(pos, viewProjectionMatrix), viewportMatrix);
   }
 
-  Novice::DrawLine((int)screenPositions[0].x, (int)screenPositions[0].y,
-                   (int)screenPositions[1].x, (int)screenPositions[1].y, BLACK);
-  Novice::DrawLine((int)screenPositions[1].x, (int)screenPositions[1].y,
-                   (int)screenPositions[2].x, (int)screenPositions[2].y, BLACK);
+  // セグメントを描画
+  Segment segments[2] = {
+      {screenPositions[0], screenPositions[1]}, // 肩から肘
+      {screenPositions[1], screenPositions[2]}  // 肘から手
+  };
 
+  for (int i = 0; i < 2; ++i) {
+    DrawSegment(segments[i], viewProjectionMatrix, viewportMatrix, BLACK);
+  }
 
   // Sphere 構造体を使って球体を構築・描画
   Sphere spheres[3] = {
-      {screenPositions[0], 5.0f, 0xFF0000FF}, // 赤（肩）
-      {screenPositions[1], 5.0f, 0xFF00FF00}, // 緑（肘）
-      {screenPositions[2], 5.0f, 0xFFFF0000}  // 青（手）
-  };
-
-// ワールド座標を直接渡す（TransformはDrawSphereの中でやる）
-  Sphere spheres[3] = {
       {{worldMatrices[0].m[3][0], worldMatrices[0].m[3][1],
         worldMatrices[0].m[3][2]},
-       5.0f,
-       0xFF0000FF},
+       0.1f,
+       0xFF0000FF}, // 赤（肩）
       {{worldMatrices[1].m[3][0], worldMatrices[1].m[3][1],
         worldMatrices[1].m[3][2]},
-       5.0f,
-       0xFF00FF00},
+       0.1f,
+       0xFF00FF00}, // 緑（肘）
       {{worldMatrices[2].m[3][0], worldMatrices[2].m[3][1],
         worldMatrices[2].m[3][2]},
-       5.0f,
-       0xFFFF0000},
+       0.1f,
+       0xFFFF0000}, // 青（手）
   };
 
   for (int i = 0; i < 3; ++i) {
