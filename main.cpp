@@ -893,7 +893,6 @@ void DrawAABB(const AABB &aabb, const Matrix4x4 &viewProjectionMatrix,
   }
 }
 
-
 #pragma endregion
 
 const int kWindowWidth = 1280;
@@ -1012,6 +1011,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     aabb1.max.x = (std::max)(aabb1.min.x, aabb1.max.x);
     aabb1.max.y = (std::max)(aabb1.min.y, aabb1.max.y);
 
+    aabb2.min.x = (std::min)(aabb2.min.x, aabb2.max.x);
+    aabb2.min.y = (std::min)(aabb2.min.y, aabb2.max.y);
+
+    aabb2.max.x = (std::max)(aabb2.min.x, aabb2.max.x);
+    aabb2.max.y = (std::max)(aabb2.min.y, aabb2.max.y);
+
     ///
     /// ↑更新処理ここまで
     ///
@@ -1037,6 +1042,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     // AABBのmin,maxをドラッグで編集
     ImGui::DragFloat3("Min", &aabb1.min.x, 0.1f);
     ImGui::DragFloat3("Max", &aabb1.max.x, 0.1f);
+    ImGui::DragFloat3("Min", &aabb2.min.x, 0.1f);
+    ImGui::DragFloat3("Max", &aabb2.max.x, 0.1f);
 
     ImGui::End();
 
