@@ -12,10 +12,22 @@
 const char kWindowTitle[] = "LE2C_01_アンドウ_カナデ_MT3";
 
 #pragma region 構造体
-typedef struct Matrix4x4 {
-
+struct Matrix4x4 {
   float m[4][4];
-} Matrix4x4;
+
+  // クラス内なら右辺だけ受け取る
+  Matrix4x4 operator*(const Matrix4x4 &rhs) const {
+    Matrix4x4 result{};
+    for (int row = 0; row < 4; ++row) {
+      for (int col = 0; col < 4; ++col) {
+        result.m[row][col] =
+            m[row][0] * rhs.m[0][col] + m[row][1] * rhs.m[1][col] +
+            m[row][2] * rhs.m[2][col] + m[row][3] * rhs.m[3][col];
+      }
+    }
+    return result;
+  }
+};
 
 struct Vector4 {
   float x, y, z, w;
@@ -576,18 +588,15 @@ Vector3 ClosestPoint(const Vector3 &point, const Segment &segment) {
 
 Matrix4x4 ComputeLocalMatrix(const Vector3 &scale, const Vector3 &rotate,
                              const Vector3 &translate) {
-  Matrix4x4 scaleMatrix = MakeScaleMatrix(scale);
-  Matrix4x4 rotateMatrix = MakeRotateXYZMatrix(rotate);
-  Matrix4x4 translateMatrix = MakeTranslateMatrix(translate);
-
-  Matrix4x4 localMatrix = Multiply(scaleMatrix, rotateMatrix);
-  localMatrix = Multiply(localMatrix, translateMatrix);
-  return localMatrix;
+  Matrix4x4 S = MakeScaleMatrix(scale);
+  Matrix4x4 R = MakeRotateXYZMatrix(rotate);
+  Matrix4x4 T = MakeTranslateMatrix(translate);
+  return S * R * T;
 }
 
-Matrix4x4 ComputeWorldMatrix(const Matrix4x4 &localMatrix,
-                             const Matrix4x4 &parentWorldMatrix) {
-  return Multiply(localMatrix, parentWorldMatrix);
+Matrix4x4 ComputeWorldMatrix(const Matrix4x4 &local,
+                             const Matrix4x4 &parentWorld) {
+  return local * parentWorld; // 行列はローカル→親
 }
 
 float Length(const Vector3 &v) {
@@ -987,11 +996,10 @@ void DrawAABB(const AABB &aabb, const Matrix4x4 &viewProjectionMatrix,
 void UpdateHierarchy(Vector3 translates[3], Vector3 rotates[3],
                      Vector3 scales[3], const Matrix4x4 &viewProjectionMatrix,
                      const Matrix4x4 &viewportMatrix) {
-  // 各ローカル行列とワールド行列を用意
   Matrix4x4 localMatrices[3];
   Matrix4x4 worldMatrices[3];
 
-  // ローカル行列を作成
+  // ローカル行列作成
   for (int i = 0; i < 3; ++i) {
     localMatrices[i] = ComputeLocalMatrix(scales[i], rotates[i], translates[i]);
   }
@@ -1003,40 +1011,27 @@ void UpdateHierarchy(Vector3 translates[3], Vector3 rotates[3],
   worldMatrices[2] =
       ComputeWorldMatrix(localMatrices[2], worldMatrices[1]); // 手
 
-  Vector3 screenPositions[3];
+  // ワールド座標の位置を抽出
+  Vector3 worldPos[3];
   for (int i = 0; i < 3; ++i) {
-    Vector3 pos = {worldMatrices[i].m[3][0], worldMatrices[i].m[3][1],
+    worldPos[i] = {worldMatrices[i].m[3][0], worldMatrices[i].m[3][1],
                    worldMatrices[i].m[3][2]};
-    screenPositions[i] =
-        Transform(Transform(pos, viewProjectionMatrix), viewportMatrix);
   }
 
-  // セグメントを描画
-  Segment segments[2] = {
-      {screenPositions[0], screenPositions[1]}, // 肩から肘
-      {screenPositions[1], screenPositions[2]}  // 肘から手
-  };
-
+  // セグメント描画（肩→肘、肘→手）
+  Segment segments[2] = {{worldPos[0], worldPos[1]},
+                         {worldPos[1], worldPos[2]}};
   for (int i = 0; i < 2; ++i) {
-    DrawSegment(segments[i], viewProjectionMatrix, viewportMatrix, BLACK);
+    DrawSegment(segments[i], viewProjectionMatrix, viewportMatrix,
+                0xFF000000); // 黒
   }
 
-  // Sphere 構造体を使って球体を構築・描画
+  // 球体描画
   Sphere spheres[3] = {
-      {{worldMatrices[0].m[3][0], worldMatrices[0].m[3][1],
-        worldMatrices[0].m[3][2]},
-       0.1f,
-       0xFF0000FF}, // 赤（肩）
-      {{worldMatrices[1].m[3][0], worldMatrices[1].m[3][1],
-        worldMatrices[1].m[3][2]},
-       0.1f,
-       0xFF00FF00}, // 緑（肘）
-      {{worldMatrices[2].m[3][0], worldMatrices[2].m[3][1],
-        worldMatrices[2].m[3][2]},
-       0.1f,
-       0xFFFF0000}, // 青（手）
+      {worldPos[0], 0.1f, 0xFFFF0000}, // 赤（肩）
+      {worldPos[1], 0.1f, 0xFF00FF00}, // 緑（肘）
+      {worldPos[2], 0.1f, 0xFF0000FF}, // 青（手）
   };
-
   for (int i = 0; i < 3; ++i) {
     DrawSphere(spheres[i], viewProjectionMatrix, viewportMatrix,
                spheres[i].color);
@@ -1147,11 +1142,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     prevMouseY = mouseY;
 
     // カメラ座標計算
-    cameraTranslate.x =
-        target.x + distance * cosf(cameraRotate.x) * sinf(cameraRotate.y);
-    cameraTranslate.y = target.y + distance * sinf(cameraRotate.x);
-    cameraTranslate.z =
-        target.z + distance * cosf(cameraRotate.x) * cosf(cameraRotate.y);
+    // cameraTranslate.x =
+    //    target.x + distance * cosf(cameraRotate.x) * sinf(cameraRotate.y);
+    // cameraTranslate.y = target.y + distance * sinf(cameraRotate.x);
+    // cameraTranslate.z =
+    //    target.z + distance * cosf(cameraRotate.x) * cosf(cameraRotate.y);
 
     // 行列計算
     Matrix4x4 cameraMatrix =
