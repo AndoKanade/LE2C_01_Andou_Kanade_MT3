@@ -1023,14 +1023,14 @@ void UpdateHierarchy(Vector3 translates[3], Vector3 rotates[3],
                          {worldPos[1], worldPos[2]}};
   for (int i = 0; i < 2; ++i) {
     DrawSegment(segments[i], viewProjectionMatrix, viewportMatrix,
-                0xFF000000); // 黒
+                BLACK); // 黒
   }
 
   // 球体描画
   Sphere spheres[3] = {
-      {worldPos[0], 0.1f, 0xFFFF0000}, // 赤（肩）
-      {worldPos[1], 0.1f, 0xFF00FF00}, // 緑（肘）
-      {worldPos[2], 0.1f, 0xFF0000FF}, // 青（手）
+      {worldPos[0], 0.1f, RED},   // 赤（肩）
+      {worldPos[1], 0.1f, GREEN}, // 緑（肘）
+      {worldPos[2], 0.1f, BLUE},  // 青（手）
   };
   for (int i = 0; i < 3; ++i) {
     DrawSphere(spheres[i], viewProjectionMatrix, viewportMatrix,
@@ -1062,7 +1062,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   // カメラ用変数（グローバル or クラス内）
   Vector3 target = {0.0f, 0.0f, 0.0f};
-  float distance = 10.0f;
+  float distance = 0.45f;
   Vector3 cameraTranslate{0.0f, 1.9f, -6.49f};
   Vector3 cameraRotate{0.26f, 0.0f, 0.0f};
 
@@ -1155,7 +1155,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
     Matrix4x4 worldMatrix = MakeIdentity4x4();
     Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(
-        0.45f, float(kWindowWidth) / float(kWindowHeight), 0.1f, 100.0f);
+        distance, float(kWindowWidth) / float(kWindowHeight), 0.1f, 100.0f);
     Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
     Matrix4x4 viewportMatrix = MakeViewportMatrix(
         0.0f, 0.0f, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
