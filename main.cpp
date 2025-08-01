@@ -969,11 +969,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   // カメラ用変数（グローバル or クラス内）
   Vector3 target = {0.0f, 0.0f, 0.0f};
-  float distance = 10.0f;
+  // float distance = 0.0f;
   Vector3 cameraTranslate{0.0f, 1.9f, -6.49f};
   Vector3 cameraRotate{0.26f, 0.0f, 0.0f};
 
   Camera camera = {cameraTranslate, 0.0f, 0.0f};
+
+  float fovY = 0.45f;
 
 #pragma endregion
 
@@ -1008,9 +1010,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
     // ズーム（マウスホイール）
     int wheel = Novice::GetWheel();
+
     if (wheel != 0) {
-      distance -= wheel * zoomSensitivity;
-      distance = std::max(distance, 1.0f); // 最小距離
+      wheel *= (int)0.1f;
+      fovY -= wheel * zoomSensitivity;
+      fovY = std::max(fovY, 1.0f); // 最小距離
     }
 
     // パン（ホイールクリックドラッグ）
@@ -1030,13 +1034,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     prevMouseX = mouseX;
     prevMouseY = mouseY;
 
-    // カメラ座標計算
-    cameraTranslate.x =
-        target.x + distance * cosf(cameraRotate.x) * sinf(cameraRotate.y);
-    cameraTranslate.y = target.y + distance * sinf(cameraRotate.x);
-    cameraTranslate.z =
-        target.z + distance * cosf(cameraRotate.x) * cosf(cameraRotate.y);
-
     // 行列計算
     Matrix4x4 cameraMatrix =
         MakeAffineMatrix({1.0f, 1.0f, 1.0f}, cameraRotate, cameraTranslate);
@@ -1044,7 +1041,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
     Matrix4x4 worldMatrix = MakeIdentity4x4();
     Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(
-        0.45f, float(kWindowWidth) / float(kWindowHeight), 0.1f, 100.0f);
+        fovY, float(kWindowWidth) / float(kWindowHeight), 0.1f, 1000.0f);
     Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
     Matrix4x4 viewportMatrix = MakeViewportMatrix(
         0.0f, 0.0f, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
@@ -1061,7 +1058,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     DrawGrid(viewProjectionMatrix, viewportMatrix);
 
     ImGui::Begin("Window");
-
+    ImGui::DragFloat("fovY", &fovY, 0.1f);
     ImGui::End();
 
     ///
