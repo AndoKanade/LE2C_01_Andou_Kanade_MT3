@@ -1037,13 +1037,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     prevMouseX = mouseX;
     prevMouseY = mouseY;
 
-    // カメラ座標計算
-    cameraTranslate.x =
-        target.x + distance * cosf(cameraRotate.x) * sinf(cameraRotate.y);
-    cameraTranslate.y = target.y + distance * sinf(cameraRotate.x);
-    cameraTranslate.z =
-        target.z + distance * cosf(cameraRotate.x) * cosf(cameraRotate.y);
-
     // 行列計算
     Matrix4x4 cameraMatrix =
         MakeAffineMatrix({1.0f, 1.0f, 1.0f}, cameraRotate, cameraTranslate);
@@ -1069,7 +1062,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
     ///
     /// ↓描画処理ここから
-    ///dek
+    /// dek
 
     DrawGrid(viewProjectionMatrix, viewportMatrix);
 
