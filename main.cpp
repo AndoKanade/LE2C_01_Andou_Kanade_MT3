@@ -554,6 +554,42 @@ Vector3 ClosestPoint(const Vector3 &point, const Segment &segment) {
 float Length(const Vector3 &v) {
   return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 }
+Matrix4x4 MakeRotateAxisAngle(const Vector3 &axis, float angle) {
+  const Vector3 n = Normalize(axis);
+  // -------------------------------------------------------------------
+
+  // 各定数を計算
+  const float cosTheta = std::cos(angle);
+  const float sinTheta = std::sin(angle);
+  const float oneMinusCosTheta = 1.0f - cosTheta;
+
+  Matrix4x4 rotateMatrix = MakeIdentity4x4();
+
+  // 1行目
+  rotateMatrix.m[0][0] = cosTheta + n.x * n.x * oneMinusCosTheta;
+  rotateMatrix.m[0][1] = n.x * n.y * oneMinusCosTheta - n.z * sinTheta;
+  rotateMatrix.m[0][2] = n.x * n.z * oneMinusCosTheta + n.y * sinTheta;
+  rotateMatrix.m[0][3] = 0.0f;
+  // 2行目
+  rotateMatrix.m[1][0] = n.y * n.x * oneMinusCosTheta + n.z * sinTheta;
+  rotateMatrix.m[1][1] = cosTheta + n.y * n.y * oneMinusCosTheta;
+  rotateMatrix.m[1][2] = n.y * n.z * oneMinusCosTheta - n.x * sinTheta;
+  rotateMatrix.m[1][3] = 0.0f;
+
+  // 3行目
+  rotateMatrix.m[2][0] = n.z * n.x * oneMinusCosTheta - n.y * sinTheta;
+  rotateMatrix.m[2][1] = n.z * n.y * oneMinusCosTheta + n.x * sinTheta;
+  rotateMatrix.m[2][2] = cosTheta + n.z * n.z * oneMinusCosTheta;
+  rotateMatrix.m[2][3] = 0.0f;
+
+  // 4行目
+  rotateMatrix.m[3][0] = 0.0f;
+  rotateMatrix.m[3][1] = 0.0f;
+  rotateMatrix.m[3][2] = 0.0f;
+  rotateMatrix.m[3][3] = 1.0f;
+
+  return rotateMatrix;
+}
 
 bool isCollision(Sphere &s1, Sphere &s2) {
   float distance = Length(s2.center - s1.center);
@@ -1050,6 +1086,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         0.0f, 0.0f, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
 #pragma endregion
 
+    Vector3 axis = Normalize({1.0f, 1.0f, 1.0f});
+    float angle = 0.44f;
+    Matrix4x4 rotateMatrix = MakeRotateAxisAngle(axis, angle);
+
     ///
     /// ↑更新処理ここまで
     ///
@@ -1058,7 +1098,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     /// ↓描画処理ここから
     /// dek
 
-    DrawGrid(viewProjectionMatrix, viewportMatrix);
+    Matrix4x4ScreenPrintf(0, 0, rotateMatrix, "rotateMatrix");
 
     ImGui::Begin("Window");
 
