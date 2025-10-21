@@ -51,6 +51,8 @@ typedef struct Vector3 {
     return {x * scalar, y * scalar, z * scalar};
   }
 
+  Vector3 operator-() const { return Vector3{-x, -y, -z}; }
+
   // ベクトルの長さの2乗（省略できる）
   float LengthSquared() const { return x * x + y * y + z * z; }
 
@@ -554,47 +556,71 @@ Vector3 ClosestPoint(const Vector3 &point, const Segment &segment) {
 float Length(const Vector3 &v) {
   return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 }
-
 Matrix4x4 MakeRotateAxisAngle(const Vector3 &axis, float angle) {
   const Vector3 n = Normalize(axis);
 
-  // 各定数を計算
   const float cosTheta = std::cos(angle);
   const float sinTheta = std::sin(angle);
   const float oneMinusCosTheta = 1.0f - cosTheta;
 
   Matrix4x4 rotateMatrix = MakeIdentity4x4();
 
-  // 1行目
   rotateMatrix.m[0][0] = cosTheta + n.x * n.x * oneMinusCosTheta;
-  rotateMatrix.m[0][1] = n.x * n.y * oneMinusCosTheta +
-                         n.z * sinTheta; 
-  rotateMatrix.m[0][2] = n.x * n.z * oneMinusCosTheta -
-                         n.y * sinTheta;
+  rotateMatrix.m[0][1] = n.x * n.y * oneMinusCosTheta + n.z * sinTheta;
+  n.x *n.z *oneMinusCosTheta - n.y *sinTheta;
   rotateMatrix.m[0][3] = 0.0f;
-  // 2行目
-  rotateMatrix.m[1][0] = n.y * n.x * oneMinusCosTheta -
-                         n.z * sinTheta; 
+
+  rotateMatrix.m[1][0] = n.y * n.x * oneMinusCosTheta - n.z * sinTheta;
   rotateMatrix.m[1][1] = cosTheta + n.y * n.y * oneMinusCosTheta;
-  rotateMatrix.m[1][2] = n.y * n.z * oneMinusCosTheta +
-                         n.x * sinTheta; 
+  rotateMatrix.m[1][2] = n.y * n.z * oneMinusCosTheta + n.x * sinTheta;
   rotateMatrix.m[1][3] = 0.0f;
 
-  // 3行目
-  rotateMatrix.m[2][0] = n.z * n.x * oneMinusCosTheta +
-                         n.y * sinTheta; 
-  rotateMatrix.m[2][1] = n.z * n.y * oneMinusCosTheta -
-                         n.x * sinTheta; 
+  rotateMatrix.m[2][0] = n.z * n.x * oneMinusCosTheta + n.y * sinTheta;
+  rotateMatrix.m[2][1] = n.z * n.y * oneMinusCosTheta - n.x * sinTheta;
   rotateMatrix.m[2][2] = cosTheta + n.z * n.z * oneMinusCosTheta;
   rotateMatrix.m[2][3] = 0.0f;
 
-  // 4行目
   rotateMatrix.m[3][0] = 0.0f;
   rotateMatrix.m[3][1] = 0.0f;
   rotateMatrix.m[3][2] = 0.0f;
   rotateMatrix.m[3][3] = 1.0f;
 
   return rotateMatrix;
+}
+
+Vector3 GetOrthogonalVector(const Vector3 &v) {
+
+  if (std::abs(v.x) <= std::abs(v.y) && std::abs(v.x) <= std::abs(v.z)) {
+    return Vector3{0.0f, v.z, -v.y};
+  } else if (std::abs(v.y) <= std::abs(v.z)) {
+    return Vector3{-v.z, 0.0f, v.x};
+  } else {
+    return Vector3{v.y, -v.x, 0.0f};
+  }
+}
+
+Matrix4x4 DirectionToDirection(const Vector3 &from, const Vector3 &to) {
+  const Vector3 n_from = Normalize(from);
+  const Vector3 n_to = Normalize(to);
+
+  float cosTheta = Dot(n_from, n_to);
+
+  if (cosTheta > 1.0f - 1.0e-4f) {
+    return MakeIdentity4x4(); // 単位行列を返す
+  }
+
+  if (cosTheta < -1.0f + 1.0e-4f) {
+    Vector3 orthogonal_vector = GetOrthogonalVector(n_from);
+    Vector3 rotation_axis = Normalize(orthogonal_vector);
+
+    return MakeRotateAxisAngle(rotation_axis, (float)M_PI);
+  }
+
+  Vector3 rotation_axis = Normalize(Cross(n_from, n_to));
+
+  float angle = std::acos(cosTheta);
+
+  return MakeRotateAxisAngle(rotation_axis, angle);
 }
 
 bool isCollision(Sphere &s1, Sphere &s2) {
@@ -1092,9 +1118,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         0.0f, 0.0f, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
 #pragma endregion
 
-    Vector3 axis = Normalize({1.0f, 1.0f, 1.0f});
-    float angle = 0.44f;
-    Matrix4x4 rotateMatrix = MakeRotateAxisAngle(axis, angle);
+    Vector3 from0 = Normalize(Vector3{1.0f, 0.7f, 0.5f});
+    Vector3 to0 = -from0;
+    Vector3 from1 = Normalize(Vector3{-0.6f, 0.9f, 0.2f});
+    Vector3 to1 = Normalize(Vector3{0.4f, 0.7f, -0.5f});
+
+    Matrix4x4 rotateMatrix0 =
+        DirectionToDirection(Normalize(Vector3{1.0f, 0.0f, 0.0f}),
+                             Normalize(Vector3{-1.0f, 0.0f, 0.0f}));
+    Matrix4x4 rotateMatrix1 = DirectionToDirection(from0, to0);
+    Matrix4x4 rotateMatrix2 = DirectionToDirection(from1, to1);
 
     ///
     /// ↑更新処理ここまで
@@ -1104,7 +1137,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     /// ↓描画処理ここから
     /// dek
 
-    Matrix4x4ScreenPrintf(0, 0, rotateMatrix, "rotateMatrix");
+    Matrix4x4ScreenPrintf(0, 0, rotateMatrix0, "rotateMatrix0");
+    Matrix4x4ScreenPrintf(0, kRowheight * 5, rotateMatrix1, "rotateMatrix1");
+    Matrix4x4ScreenPrintf(0, kRowheight * 10, rotateMatrix2, "rotateMatrix2");
 
     ImGui::Begin("Window");
 
