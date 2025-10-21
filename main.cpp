@@ -554,9 +554,9 @@ Vector3 ClosestPoint(const Vector3 &point, const Segment &segment) {
 float Length(const Vector3 &v) {
   return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 }
+
 Matrix4x4 MakeRotateAxisAngle(const Vector3 &axis, float angle) {
   const Vector3 n = Normalize(axis);
-  // -------------------------------------------------------------------
 
   // 各定数を計算
   const float cosTheta = std::cos(angle);
@@ -567,18 +567,24 @@ Matrix4x4 MakeRotateAxisAngle(const Vector3 &axis, float angle) {
 
   // 1行目
   rotateMatrix.m[0][0] = cosTheta + n.x * n.x * oneMinusCosTheta;
-  rotateMatrix.m[0][1] = n.x * n.y * oneMinusCosTheta - n.z * sinTheta;
-  rotateMatrix.m[0][2] = n.x * n.z * oneMinusCosTheta + n.y * sinTheta;
+  rotateMatrix.m[0][1] = n.x * n.y * oneMinusCosTheta +
+                         n.z * sinTheta; 
+  rotateMatrix.m[0][2] = n.x * n.z * oneMinusCosTheta -
+                         n.y * sinTheta;
   rotateMatrix.m[0][3] = 0.0f;
   // 2行目
-  rotateMatrix.m[1][0] = n.y * n.x * oneMinusCosTheta + n.z * sinTheta;
+  rotateMatrix.m[1][0] = n.y * n.x * oneMinusCosTheta -
+                         n.z * sinTheta; 
   rotateMatrix.m[1][1] = cosTheta + n.y * n.y * oneMinusCosTheta;
-  rotateMatrix.m[1][2] = n.y * n.z * oneMinusCosTheta - n.x * sinTheta;
+  rotateMatrix.m[1][2] = n.y * n.z * oneMinusCosTheta +
+                         n.x * sinTheta; 
   rotateMatrix.m[1][3] = 0.0f;
 
   // 3行目
-  rotateMatrix.m[2][0] = n.z * n.x * oneMinusCosTheta - n.y * sinTheta;
-  rotateMatrix.m[2][1] = n.z * n.y * oneMinusCosTheta + n.x * sinTheta;
+  rotateMatrix.m[2][0] = n.z * n.x * oneMinusCosTheta +
+                         n.y * sinTheta; 
+  rotateMatrix.m[2][1] = n.z * n.y * oneMinusCosTheta -
+                         n.x * sinTheta; 
   rotateMatrix.m[2][2] = cosTheta + n.z * n.z * oneMinusCosTheta;
   rotateMatrix.m[2][3] = 0.0f;
 
@@ -749,7 +755,7 @@ void Matrix4x4ScreenPrintf(int x, int y, const Matrix4x4 &matrix,
   for (int row = 0; row < 4; row++) {
     for (int column = 0; column < 4; column++) {
       Novice::ScreenPrintf(x + column * kColumnWidth,
-                           y + (row + 1) * kRowheight, "%6.02f",
+                           y + (row + 1) * kRowheight, "%6.03f",
                            matrix.m[row][column]);
     }
   }
