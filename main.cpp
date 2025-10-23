@@ -567,7 +567,7 @@ Matrix4x4 MakeRotateAxisAngle(const Vector3 &axis, float angle) {
 
   rotateMatrix.m[0][0] = cosTheta + n.x * n.x * oneMinusCosTheta;
   rotateMatrix.m[0][1] = n.x * n.y * oneMinusCosTheta + n.z * sinTheta;
-  n.x *n.z *oneMinusCosTheta - n.y *sinTheta;
+  rotateMatrix.m[0][2] = n.x * n.z * oneMinusCosTheta - n.y * sinTheta;
   rotateMatrix.m[0][3] = 0.0f;
 
   rotateMatrix.m[1][0] = n.y * n.x * oneMinusCosTheta - n.z * sinTheta;
