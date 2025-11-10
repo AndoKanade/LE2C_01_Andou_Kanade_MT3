@@ -103,6 +103,13 @@ struct AABB {
   Vector3 max; // 最大点
 };
 
+struct Quaternion {
+  float x; // スカラー成分
+  float y; // ベクトル成分 x
+  float z; // ベクトル成分 y
+  float w; // ベクトル成分 z
+};
+
 #pragma endregion
 
 #pragma region 関数
@@ -623,6 +630,74 @@ Matrix4x4 DirectionToDirection(const Vector3 &from, const Vector3 &to) {
   return MakeRotateAxisAngle(rotation_axis, angle);
 }
 
+#pragma region Quaternion
+
+Quaternion Multiply(const Quaternion &lhs, const Quaternion &rhs) {
+  Quaternion result;
+
+  result.w = lhs.w * rhs.w - lhs.x * rhs.x - lhs.y * rhs.y - lhs.z * rhs.z;
+
+  result.x = lhs.w * rhs.x + lhs.x * rhs.w + lhs.y * rhs.z - lhs.z * rhs.y;
+  result.y = lhs.w * rhs.y + lhs.y * rhs.w + lhs.z * rhs.x - lhs.x * rhs.z;
+  result.z = lhs.w * rhs.z + lhs.z * rhs.w + lhs.x * rhs.y - lhs.y * rhs.x;
+
+  return result;
+}
+
+Quaternion IdentityQuaternion() { return {0.0f, 0.0f, 0.0f, 1.0f}; }
+
+Quaternion Conjugate(const Quaternion &quaternion) {
+  Quaternion result;
+  result.x = -quaternion.x; // xを反転
+  result.y = -quaternion.y; // yを反転
+  result.z = -quaternion.z; // zを反転
+  result.w = quaternion.w;  // wはそのまま
+  return result;
+}
+
+float Norm(const Quaternion &quaternion) {
+  float norm_sq = quaternion.x * quaternion.x + quaternion.y * quaternion.y +
+                  quaternion.z * quaternion.z + quaternion.w * quaternion.w;
+
+  return std::sqrt(norm_sq);
+}
+
+Quaternion Normalize(const Quaternion &quaternion) {
+  float norm = Norm(quaternion);
+  if (std::abs(norm) < 1e-6f) {
+    return {0.0f, 0.0f, 0.0f, 0.0f};
+  }
+
+  float inv_norm = 1.0f / norm;
+  Quaternion result;
+  result.x = quaternion.x * inv_norm;
+  result.y = quaternion.y * inv_norm;
+  result.z = quaternion.z * inv_norm;
+  result.w = quaternion.w * inv_norm;
+  return result;
+}
+
+Quaternion Inverse(const Quaternion &quaternion) {
+  float norm_sq = quaternion.x * quaternion.x + quaternion.y * quaternion.y +
+                  quaternion.z * quaternion.z + quaternion.w * quaternion.w;
+
+  if (std::abs(norm_sq) < 1e-6f) {
+    return {0.0f, 0.0f, 0.0f, 0.0f};
+  }
+
+  float inv_norm_sq = 1.0f / norm_sq;
+
+  Quaternion result;
+  result.w = quaternion.w * inv_norm_sq;
+  result.x = -quaternion.x * inv_norm_sq;
+  result.y = -quaternion.y * inv_norm_sq;
+  result.z = -quaternion.z * inv_norm_sq;
+
+  return result;
+}
+
+#pragma endregion
+
 bool isCollision(Sphere &s1, Sphere &s2) {
   float distance = Length(s2.center - s1.center);
   if (distance <= s1.radius + s2.radius) {
@@ -793,6 +868,15 @@ void Vector3ScreenPrintf(int x, int y, const Vector3 &vector,
   Novice::ScreenPrintf(x + kColumnWidth, y, "%.02f", vector.y);
   Novice::ScreenPrintf(x + kColumnWidth * 2, y, "%.02f", vector.z);
   Novice::ScreenPrintf(x + kColumnWidth * 3, y, label);
+}
+
+void QuaternionScreenPrintf(int x, int y, const Quaternion &quaternion,
+                            const char *label) {
+  Novice::ScreenPrintf(x, y, "%.02f", quaternion.x);
+  Novice::ScreenPrintf(x + kColumnWidth, y, "%.02f", quaternion.y);
+  Novice::ScreenPrintf(x + kColumnWidth * 2, y, "%.02f", quaternion.z);
+  Novice::ScreenPrintf(x + kColumnWidth * 3, y, "%.02f", quaternion.w);
+  Novice::ScreenPrintf(x + kColumnWidth * 4, y, label);
 }
 
 void DrawGrid(const Matrix4x4 &viewProjectionMatrix,
@@ -1118,16 +1202,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         0.0f, 0.0f, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
 #pragma endregion
 
-    Vector3 from0 = Normalize(Vector3{1.0f, 0.7f, 0.5f});
-    Vector3 to0 = -from0;
-    Vector3 from1 = Normalize(Vector3{-0.6f, 0.9f, 0.2f});
-    Vector3 to1 = Normalize(Vector3{0.4f, 0.7f, -0.5f});
+    Quaternion q1 = {2.0f, 3.0f, 4.0f, 1.0f};
+    Quaternion q2 = {1.0f, 3.0f, 5.0f, 2.0f};
 
-    Matrix4x4 rotateMatrix0 =
-        DirectionToDirection(Normalize(Vector3{1.0f, 0.0f, 0.0f}),
-                             Normalize(Vector3{-1.0f, 0.0f, 0.0f}));
-    Matrix4x4 rotateMatrix1 = DirectionToDirection(from0, to0);
-    Matrix4x4 rotateMatrix2 = DirectionToDirection(from1, to1);
+    Quaternion identity = IdentityQuaternion();
+    Quaternion conj = Conjugate(q1);
+    Quaternion inv = Inverse(q1);
+
+    Quaternion normal = Normalize(q1);
+
+    Quaternion mul1 = Multiply(q1, q2);
+    Quaternion mul2 = Multiply(q2, q1);
+
+    float morm = Norm(q1);
 
     ///
     /// ↑更新処理ここまで
@@ -1137,9 +1224,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     /// ↓描画処理ここから
     /// dek
 
-    Matrix4x4ScreenPrintf(0, 0, rotateMatrix0, "rotateMatrix0");
-    Matrix4x4ScreenPrintf(0, kRowheight * 5, rotateMatrix1, "rotateMatrix1");
-    Matrix4x4ScreenPrintf(0, kRowheight * 10, rotateMatrix2, "rotateMatrix2");
+    QuaternionScreenPrintf(0, 0, identity, ": identity");
+    QuaternionScreenPrintf(0, 1 * kRowheight, conj, ": conjugate");
+    QuaternionScreenPrintf(0, 2 * kRowheight, inv, ": inverse");
+    QuaternionScreenPrintf(0, 3 * kRowheight, normal, ": normalize");
+    QuaternionScreenPrintf(0, 4 * kRowheight, mul1, ": q1 * q2");
+    QuaternionScreenPrintf(0, 5 * kRowheight, mul2, ": q2 * q1");
+    Novice::ScreenPrintf(0, 6 * kRowheight, "%.03f : norm", morm);
 
     ImGui::Begin("Window");
 
