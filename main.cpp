@@ -721,20 +721,15 @@ Quaternion MakeRotateAxisAngleQuaternion(const Vector3 &axis, float angle) {
 }
 
 Vector3 RotateVector(const Vector3 &vector, const Quaternion &quaternion) {
-  // 1. ベクトルを純粋クォータニオンに変換 (スカラー成分wは0)
+
   Quaternion p = {vector.x, vector.y, vector.z, 0.0f};
 
-  // 2. 共役クォータニオン q_conj を計算
   Quaternion q_conj = Conjugate(quaternion);
 
-  // 3. 計算: q * p * q*
-  // q_p = q * p
   Quaternion q_p = Multiply(quaternion, p);
 
-  // result = q_p * q*
-  Quaternion result =Multiply(q_p, q_conj);
+  Quaternion result = Multiply(q_p, q_conj);
 
-  // 4. 結果のベクトル成分 (x, y, z) を抽出
   Vector3 rotatedVector;
   rotatedVector.x = result.x;
   rotatedVector.y = result.y;
@@ -744,15 +739,13 @@ Vector3 RotateVector(const Vector3 &vector, const Quaternion &quaternion) {
 }
 
 Matrix4x4 MakeRotateMatrix(const Quaternion &quaternion) {
-  Matrix4x4 matrix = {0}; // 全要素を0で初期化
+  Matrix4x4 matrix = {0};
 
-  // 定義に従い: (x, y, z): ベクトル成分, w: スカラー成分
   const float x = quaternion.x;
   const float y = quaternion.y;
   const float z = quaternion.z;
   const float w = quaternion.w;
 
-  // 計算を簡略化するための項
   const float x2 = x * x;
   const float y2 = y * y;
   const float z2 = z * z;
