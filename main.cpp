@@ -104,11 +104,25 @@ struct AABB {
 };
 
 struct Quaternion {
-  float x; // スカラー成分
+  float x; // スカラー成分 w
   float y; // ベクトル成分 x
   float z; // ベクトル成分 y
   float w; // ベクトル成分 z
+
+  float dot(const Quaternion &other) const {
+    return x * other.x + y * other.y + z * other.z + w * other.w;
+  }
+
+  Quaternion operator*(float scalar) const {
+    return {x * scalar, y * scalar, z * scalar, w * scalar};
+  }
+
+  Quaternion operator+(const Quaternion &other) const {
+    return {x + other.x, y + other.y, z + other.z, w + other.w};
+  }
 };
+
+Quaternion operator*(float scalar, const Quaternion &q) { return q * scalar; }
 
 #pragma endregion
 
@@ -783,6 +797,48 @@ Matrix4x4 MakeRotateMatrix(const Quaternion &quaternion) {
   return matrix;
 }
 
+Quaternion Slerp(const Quaternion &q0_in, const Quaternion &q1_in, float t) {
+  if (t <= 0.0f)
+    return q0_in;
+  if (t >= 1.0f)
+    return q1_in;
+
+  Quaternion q0 = q0_in;
+  Quaternion q1 = q1_in;
+
+  float dot = q0.dot(q1);
+
+  if (dot < 0.0f) {
+    dot = -dot;
+
+    q1.x = -q1.x;
+    q1.y = -q1.y;
+    q1.z = -q1.z;
+    q1.w = -q1.w;
+  }
+
+  if (dot > 1.0f) {
+    dot = 1.0f;
+  }
+
+  float theta = std::acos(dot);
+
+  const float EPSILON = 1e-6f;
+  if (std::fabs(theta) < EPSILON) {
+
+    return q0 * (1.0f - t) + q1 * t;
+  }
+
+  float sin_theta = std::sin(theta);
+
+  float inv_sin_theta = 1.0f / sin_theta;
+
+  float scale0 = std::sin((1.0f - t) * theta) * inv_sin_theta;
+  float scale1 = std::sin(t * theta) * inv_sin_theta;
+
+  return q0 * scale0 + q1 * scale1;
+}
+
 #pragma endregion
 
 bool isCollision(Sphere &s1, Sphere &s2) {
@@ -1288,13 +1344,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     Matrix4x4 viewportMatrix = MakeViewportMatrix(
         0.0f, 0.0f, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
 #pragma endregion
-    Quaternion rotation = MakeRotateAxisAngleQuaternion(
-        Normalize(Vector3{1.0f, 0.4f, -0.2f}), 0.45f);
+    Quaternion rotation0 =
+        MakeRotateAxisAngleQuaternion({0.71f, 0.71f, 0.0f}, 0.3f);
+    Quaternion rotation1 =
+        MakeRotateAxisAngleQuaternion({0.71f, 0.0f, 0.71f}, 3.141592f);
 
-    Vector3 pointY = {2.1f, -0.9f, 1.3f};
-    Matrix4x4 rotateMatrix = MakeRotateMatrix(rotation);
-    Vector3 rotateByQuaternion = RotateVector(pointY, rotation);
-    Vector3 rotateByMatrix = Transform(pointY, rotateMatrix);
+    Quaternion interpolate0 = Slerp(rotation0, rotation1, 0.0f);
+    Quaternion interpolate1 = Slerp(rotation0, rotation1, 0.3f);
+    Quaternion interpolate2 = Slerp(rotation0, rotation1, 0.5f);
+    Quaternion interpolate3 = Slerp(rotation0, rotation1, 0.7f);
+    Quaternion interpolate4 = Slerp(rotation0, rotation1, 1.0f);
 
     ///
     /// ↑更新処理ここまで
@@ -1304,11 +1363,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     /// ↓描画処理ここから
     /// dek
 
-    QuaternionScreenPrintf(0, kRowheight * 0, rotation, ": rotation");
-    Matrix4x4ScreenPrintf(0, kRowheight * 1, rotateMatrix, ": rotateMatrix");
-    Vector3ScreenPrintf(0, kRowheight * 6, rotateByQuaternion,
-                        " : rotateByQuatanion");
-    Vector3ScreenPrintf(0, kRowheight * 7, rotateByMatrix, " : rotateByMatrix");
+    QuaternionScreenPrintf(0, kRowheight * 0, interpolate0,
+                           ": interpolate0, Sleap(q0,q1,0.0f)");
+    QuaternionScreenPrintf(0, kRowheight * 1, interpolate1,
+                           ": interpolate1, Sleap(q0,q1,0.3f)");
+    QuaternionScreenPrintf(0, kRowheight * 2, interpolate2,
+                           ": interpolate2, Sleap(q0,q1,0.5f)");
+    QuaternionScreenPrintf(0, kRowheight * 3, interpolate3,
+                           ": interpolate3, Sleap(q0,q1,0.7f)");
+    QuaternionScreenPrintf(0, kRowheight * 4, interpolate4,
+                           ": interpolate4, Sleap(q0,q1,1.0f)");
 
     ImGui::Begin("Window");
 
